@@ -1,0 +1,19 @@
+name: Tests
+on: [push, pull_request]
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pipx install poetry
+      - run: poetry install --with dev
+      - run: poetry run ruff check .
+      - run: poetry run ruff format --check .
+      - run: poetry run mypy src
+      - run: poetry run pytest --cov=pixopdf --cov-report=term-missing --cov-fail-under=80
+      - run: poetry run python -c "import pixopdf"
