@@ -36,6 +36,9 @@ MANIFEST
 # macOS metadata
 .DS_Store
 
+# Generated branding hand-off archive (sources live in assets/pixopdf-vector-assets/)
+assets/pixopdf-vector-assets.zip
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt

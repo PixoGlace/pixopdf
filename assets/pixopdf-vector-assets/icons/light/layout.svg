@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Mise en page — thème light</title>
+  <desc id="desc">Icône vectorielle PixoPDF pour Mise en page.</desc>
+
+
+  <rect x="13" y="8" width="38" height="48" rx="5" fill="none" stroke="#172B4D" stroke-width="4"/>
+  <path d="M22 23h20M22 32h20M22 41h13" fill="none" stroke="#14B8A6" stroke-width="4" stroke-linecap="round"/>
+  <rect x="38" y="38" width="7" height="8" rx="1.5" fill="#14B8A6"/>
+
+</svg>

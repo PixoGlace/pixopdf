@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Ouvrir — thème light</title>
+  <desc id="desc">Icône vectorielle PixoPDF pour Ouvrir.</desc>
+
+
+  <path d="M8 20h18l6 7h24v23H8Z" fill="#DFF8F5" stroke="#172B4D" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M8 24V15h19l5 6h18v6" fill="none" stroke="#172B4D" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M11 50l6-18h42l-6 18Z" fill="#FFFFFF" stroke="#14B8A6" stroke-width="4" stroke-linejoin="round"/>
+
+</svg>

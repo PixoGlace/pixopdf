@@ -1,0 +1,125 @@
+{
+  "project": "PixoPDF",
+  "palette": {
+    "light": {
+      "background": "#F8FAFC",
+      "surface": "#FFFFFF",
+      "primary": "#172B4D",
+      "secondary": "#475569",
+      "muted": "#CBD5E1",
+      "accent": "#14B8A6",
+      "accent_soft": "#DFF8F5",
+      "amber": "#F59E0B",
+      "danger": "#EF4444"
+    },
+    "dark": {
+      "background": "#0F172A",
+      "surface": "#111827",
+      "primary": "#F8FAFC",
+      "secondary": "#CBD5E1",
+      "muted": "#334155",
+      "accent": "#14B8A6",
+      "accent_soft": "#173D3A",
+      "amber": "#F59E0B",
+      "danger": "#F87171"
+    }
+  },
+  "icons": [
+    {
+      "id": "home",
+      "label": "Accueil",
+      "light": "icons/light/home.svg",
+      "dark": "icons/dark/home.svg"
+    },
+    {
+      "id": "recent",
+      "label": "Récents",
+      "light": "icons/light/recent.svg",
+      "dark": "icons/dark/recent.svg"
+    },
+    {
+      "id": "tools",
+      "label": "Outils",
+      "light": "icons/light/tools.svg",
+      "dark": "icons/dark/tools.svg"
+    },
+    {
+      "id": "settings",
+      "label": "Paramètres",
+      "light": "icons/light/settings.svg",
+      "dark": "icons/dark/settings.svg"
+    },
+    {
+      "id": "about",
+      "label": "À propos",
+      "light": "icons/light/about.svg",
+      "dark": "icons/dark/about.svg"
+    },
+    {
+      "id": "open",
+      "label": "Ouvrir",
+      "light": "icons/light/open.svg",
+      "dark": "icons/dark/open.svg"
+    },
+    {
+      "id": "export",
+      "label": "Exporter",
+      "light": "icons/light/export.svg",
+      "dark": "icons/dark/export.svg"
+    },
+    {
+      "id": "merge",
+      "label": "Fusionner",
+      "light": "icons/light/merge.svg",
+      "dark": "icons/dark/merge.svg"
+    },
+    {
+      "id": "organize",
+      "label": "Réorganiser",
+      "light": "icons/light/organize.svg",
+      "dark": "icons/dark/organize.svg"
+    },
+    {
+      "id": "split",
+      "label": "Diviser",
+      "light": "icons/light/split.svg",
+      "dark": "icons/dark/split.svg"
+    },
+    {
+      "id": "layout",
+      "label": "Mise en page",
+      "light": "icons/light/layout.svg",
+      "dark": "icons/dark/layout.svg"
+    },
+    {
+      "id": "sign",
+      "label": "Signer",
+      "light": "icons/light/sign.svg",
+      "dark": "icons/dark/sign.svg"
+    },
+    {
+      "id": "convert",
+      "label": "Convertir",
+      "light": "icons/light/convert.svg",
+      "dark": "icons/dark/convert.svg"
+    },
+    {
+      "id": "secure",
+      "label": "Sécuriser",
+      "light": "icons/light/secure.svg",
+      "dark": "icons/dark/secure.svg"
+    },
+    {
+      "id": "compress",
+      "label": "Compresser",
+      "light": "icons/light/compress.svg",
+      "dark": "icons/dark/compress.svg"
+    }
+  ],
+  "logos": {
+    "light": "pixopdf-logo-light.svg",
+    "dark": "pixopdf-logo-dark.svg",
+    "app_icon_light": "pixopdf-app-icon-light.svg",
+    "app_icon_dark": "pixopdf-app-icon-dark.svg"
+  }
+}

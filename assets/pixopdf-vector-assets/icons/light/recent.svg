@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Récents — thème light</title>
+  <desc id="desc">Icône vectorielle PixoPDF pour Récents.</desc>
+
+
+  <circle cx="32" cy="32" r="22" fill="none" stroke="#172B4D" stroke-width="4"/>
+  <path d="M32 20v13l10 6" fill="none" stroke="#14B8A6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+</svg>

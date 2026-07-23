@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Sécuriser — thème dark</title>
+  <desc id="desc">Icône vectorielle PixoPDF pour Sécuriser.</desc>
+
+
+  <rect x="13" y="27" width="38" height="29" rx="6" fill="#111827" stroke="#F8FAFC" stroke-width="4"/>
+  <path d="M21 27v-7c0-8 5-13 11-13s11 5 11 13v7" fill="none" stroke="#F8FAFC" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="32" cy="40" r="5" fill="#14B8A6"/>
+  <path d="M32 45v5" stroke="#14B8A6" stroke-width="4" stroke-linecap="round"/>
+
+</svg>

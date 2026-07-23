@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Compresser — thème dark</title>
+  <desc id="desc">Icône vectorielle PixoPDF pour Compresser.</desc>
+
+
+  <path d="M32 8v25M22 24l10 10 10-10" fill="none" stroke="#F59E0B" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M16 41h32M21 49h22M27 57h10" fill="none" stroke="#F59E0B" stroke-width="4" stroke-linecap="round"/>
+
+</svg>

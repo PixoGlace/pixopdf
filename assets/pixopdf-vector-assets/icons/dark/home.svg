@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Accueil — thème dark</title>
+  <desc id="desc">Icône vectorielle PixoPDF pour Accueil.</desc>
+
+
+  <path d="M10 31 32 12l22 19" fill="none" stroke="#F8FAFC" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M16 29v23h32V29L32 16Z" fill="#14B8A6" stroke="#14B8A6" stroke-width="2" stroke-linejoin="round"/>
+  <rect x="27" y="38" width="10" height="14" rx="2.5" fill="#111827"/>
+
+</svg>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Signer — thème dark</title>
+  <desc id="desc">Icône vectorielle PixoPDF pour Signer.</desc>
+
+
+  <path d="m18 42 18-31 9 5-18 31-12 5Z" fill="#111827" stroke="#F8FAFC" stroke-width="4" stroke-linejoin="round"/>
+  <path d="m34 14 9 5" fill="none" stroke="#14B8A6" stroke-width="4"/>
+  <path d="M15 53c7-5 10-6 13-1 4 6 9-7 14-2 4 4 7 2 10-1" fill="none" stroke="#14B8A6" stroke-width="4" stroke-linecap="round"/>
+
+</svg>

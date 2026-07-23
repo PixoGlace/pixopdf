@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Exporter — thème light</title>
+  <desc id="desc">Icône vectorielle PixoPDF pour Exporter.</desc>
+
+
+  <path d="M14 10h24l10 10v34H14Z" fill="none" stroke="#172B4D" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M38 10v12h12" fill="none" stroke="#14B8A6" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M30 43 49 24M38 24h11v11" fill="none" stroke="#14B8A6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+</svg>

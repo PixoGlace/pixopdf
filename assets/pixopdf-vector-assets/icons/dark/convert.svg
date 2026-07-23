@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Convertir — thème dark</title>
+  <desc id="desc">Icône vectorielle PixoPDF pour Convertir.</desc>
+
+
+  <path d="M9 10h20l7 7v24H9Z" fill="none" stroke="#F8FAFC" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M29 10v9h9" fill="none" stroke="#14B8A6" stroke-width="4"/>
+  <path d="M28 23c8-8 19-6 24 2M50 20l3 6-7 1" fill="none" stroke="#14B8A6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M55 54H35l-7-7V23h27Z" fill="#111827" stroke="#F8FAFC" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M35 54v-9h-9" fill="none" stroke="#14B8A6" stroke-width="4"/>
+  <path d="M36 42c-8 8-19 6-24-2M14 45l-3-6 7-1" fill="none" stroke="#14B8A6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+</svg>

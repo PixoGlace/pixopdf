@@ -1,0 +1,461 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   width="1400"
+   height="980"
+   viewBox="0 0 1400 980"
+   role="img"
+   aria-labelledby="title desc"
+   version="1.1"
+   id="svg31"
+   sodipodi:docname="pixopdf-brand-board.svg"
+   inkscape:version="1.3.2 (091e20e, 2023-11-25)"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <defs
+     id="defs31" />
+  <sodipodi:namedview
+     id="namedview31"
+     pagecolor="#ffffff"
+     bordercolor="#000000"
+     borderopacity="0.25"
+     inkscape:showpageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:deskcolor="#d1d1d1"
+     inkscape:zoom="0.92613748"
+     inkscape:cx="474.0117"
+     inkscape:cy="659.18939"
+     inkscape:window-width="1800"
+     inkscape:window-height="1056"
+     inkscape:window-x="0"
+     inkscape:window-y="39"
+     inkscape:window-maximized="1"
+     inkscape:current-layer="svg31" />
+  <title
+     id="title">PixoPDF logo system and color palette</title>
+  <desc
+     id="desc">Light and dark PixoPDF logo variants with the PixoGlace brand palette.</desc>
+  <rect
+     width="1400"
+     height="980"
+     fill="#E2E8F0"
+     id="rect1" />
+  <rect
+     x="30"
+     y="30"
+     width="1340"
+     height="920"
+     rx="36"
+     fill="#FFFFFF"
+     id="rect2" />
+  <text
+     x="80"
+     y="104"
+     font-family="Inter, Segoe UI, Arial, sans-serif"
+     font-size="46"
+     font-weight="750"
+     fill="#172B4D"
+     id="text2">
+    PixoPDF — Logo system
+  </text>
+  <text
+     x="80"
+     y="146"
+     font-family="Inter, Segoe UI, Arial, sans-serif"
+     font-size="23"
+     fill="#475569"
+     id="text3">
+    Cross-platform PDF toolkit • PixoGlace visual identity
+  </text>
+  <!-- Light preview -->
+  <rect
+     x="80"
+     y="190"
+     width="1240"
+     height="250"
+     rx="28"
+     fill="#F8FAFC"
+     stroke="#CBD5E1"
+     stroke-width="2"
+     id="rect3" />
+  <text
+     x="112"
+     y="228"
+     font-family="Inter, Segoe UI, Arial, sans-serif"
+     font-size="20"
+     font-weight="700"
+     fill="#475569"
+     id="text4">
+    LIGHT THEME
+  </text>
+  <g
+     transform="translate(120 252) scale(.56)"
+     id="g8"
+     inkscape:export-filename="logo_white.png"
+     inkscape:export-xdpi="96"
+     inkscape:export-ydpi="96">
+    <rect
+       x="30"
+       y="16"
+       width="196"
+       height="238"
+       rx="30"
+       fill="#F1F5F9"
+       stroke="#172B4D"
+       stroke-width="10"
+       id="rect4" />
+    <path
+       d="M28 0 H160 L224 64 V238 C224 256 210 270 192 270 H28 C10 270 0 256 0 238 V32 C0 14 10 0 28 0 Z"
+       fill="#FFFFFF"
+       stroke="#172B4D"
+       stroke-width="10"
+       stroke-linejoin="round"
+       id="path4" />
+    <path
+       d="M160 0 V42 C160 54 170 64 182 64 H224 Z"
+       fill="#F59E0B"
+       id="path5" />
+    <path
+       d="M160 0 V42 C160 54 170 64 182 64 H224"
+       fill="none"
+       stroke="#172B4D"
+       stroke-width="10"
+       id="path6" />
+    <rect
+       x="44"
+       y="92"
+       width="56"
+       height="112"
+       rx="14"
+       fill="#DFF8F5"
+       id="rect6" />
+    <rect
+       x="124"
+       y="92"
+       width="56"
+       height="112"
+       rx="14"
+       fill="#DFF8F5"
+       id="rect7" />
+    <path
+       d="M112 82 V216"
+       stroke="#14B8A6"
+       stroke-width="14"
+       stroke-linecap="round"
+       id="path7" />
+    <path
+       d="M70 148 H95 M129 148 H154"
+       stroke="#14B8A6"
+       stroke-width="10"
+       stroke-linecap="round"
+       id="path8" />
+    <circle
+       cx="112"
+       cy="236"
+       r="10"
+       fill="#F59E0B"
+       id="circle8" />
+  </g>
+  <text
+     x="300"
+     y="360"
+     font-family="Inter, Segoe UI, Arial, sans-serif"
+     font-size="94"
+     font-weight="750"
+     letter-spacing="-4"
+     id="text9"><tspan
+       fill="#172B4D"
+       id="tspan8">pixo</tspan><tspan
+       fill="#14B8A6"
+       id="tspan9">PDF</tspan></text>
+  <text
+     x="305"
+     y="404"
+     font-family="Inter, Segoe UI, Arial, sans-serif"
+     font-size="22"
+     font-weight="500"
+     fill="#475569"
+     letter-spacing="1.4"
+     id="text10">
+    ORGANIZE • TRANSFORM • PROTECT
+  </text>
+  <!-- Dark preview -->
+  <rect
+     x="80"
+     y="470"
+     width="1240"
+     height="250"
+     rx="28"
+     fill="#0F172A"
+     id="rect10" />
+  <text
+     x="112"
+     y="508"
+     font-family="Inter, Segoe UI, Arial, sans-serif"
+     font-size="20"
+     font-weight="700"
+     fill="#CBD5E1"
+     id="text11">
+    DARK THEME
+  </text>
+  <g
+     transform="translate(120 532) scale(.56)"
+     id="g15"
+     inkscape:export-filename="logo_dark.png"
+     inkscape:export-xdpi="96"
+     inkscape:export-ydpi="96">
+    <rect
+       x="30"
+       y="16"
+       width="196"
+       height="238"
+       rx="30"
+       fill="#1E293B"
+       stroke="#CBD5E1"
+       stroke-width="10"
+       id="rect11" />
+    <path
+       d="M28 0 H160 L224 64 V238 C224 256 210 270 192 270 H28 C10 270 0 256 0 238 V32 C0 14 10 0 28 0 Z"
+       fill="#111827"
+       stroke="#FFFFFF"
+       stroke-width="10"
+       stroke-linejoin="round"
+       id="path11" />
+    <path
+       d="M160 0 V42 C160 54 170 64 182 64 H224 Z"
+       fill="#F59E0B"
+       id="path12" />
+    <path
+       d="M160 0 V42 C160 54 170 64 182 64 H224"
+       fill="none"
+       stroke="#FFFFFF"
+       stroke-width="10"
+       id="path13" />
+    <rect
+       x="44"
+       y="92"
+       width="56"
+       height="112"
+       rx="14"
+       fill="#173D3A"
+       id="rect13" />
+    <rect
+       x="124"
+       y="92"
+       width="56"
+       height="112"
+       rx="14"
+       fill="#173D3A"
+       id="rect14" />
+    <path
+       d="M112 82 V216"
+       stroke="#14B8A6"
+       stroke-width="14"
+       stroke-linecap="round"
+       id="path14" />
+    <path
+       d="M70 148 H95 M129 148 H154"
+       stroke="#14B8A6"
+       stroke-width="10"
+       stroke-linecap="round"
+       id="path15" />
+    <circle
+       cx="112"
+       cy="236"
+       r="10"
+       fill="#F59E0B"
+       id="circle15" />
+  </g>
+  <text
+     x="300"
+     y="640"
+     font-family="Inter, Segoe UI, Arial, sans-serif"
+     font-size="94"
+     font-weight="750"
+     letter-spacing="-4"
+     id="text16"><tspan
+       fill="#FFFFFF"
+       id="tspan15">pixo</tspan><tspan
+       fill="#14B8A6"
+       id="tspan16">PDF</tspan></text>
+  <text
+     x="305"
+     y="684"
+     font-family="Inter, Segoe UI, Arial, sans-serif"
+     font-size="22"
+     font-weight="500"
+     fill="#CBD5E1"
+     letter-spacing="1.4"
+     id="text17">
+    ORGANIZE • TRANSFORM • PROTECT
+  </text>
+  <!-- Palette -->
+  <text
+     x="80"
+     y="790"
+     font-family="Inter, Segoe UI, Arial, sans-serif"
+     font-size="34"
+     font-weight="750"
+     fill="#172B4D"
+     id="text18">
+    Brand palette
+  </text>
+  <g
+     font-family="Inter, Segoe UI, Arial, sans-serif"
+     id="g31">
+    <g
+       transform="translate(80 824)"
+       id="g20">
+      <rect
+         width="190"
+         height="92"
+         rx="18"
+         fill="#172B4D"
+         id="rect18" />
+      <text
+         x="18"
+         y="36"
+         font-size="20"
+         font-weight="700"
+         fill="#FFFFFF"
+         id="text19">Navy</text>
+      <text
+         x="18"
+         y="68"
+         font-size="18"
+         fill="#CBD5E1"
+         id="text20">#172B4D</text>
+    </g>
+    <g
+       transform="translate(288 824)"
+       id="g22">
+      <rect
+         width="190"
+         height="92"
+         rx="18"
+         fill="#14B8A6"
+         id="rect20" />
+      <text
+         x="18"
+         y="36"
+         font-size="20"
+         font-weight="700"
+         fill="#062D29"
+         id="text21">Teal</text>
+      <text
+         x="18"
+         y="68"
+         font-size="18"
+         fill="#062D29"
+         id="text22">#14B8A6</text>
+    </g>
+    <g
+       transform="translate(496 824)"
+       id="g24">
+      <rect
+         width="190"
+         height="92"
+         rx="18"
+         fill="#F59E0B"
+         id="rect22" />
+      <text
+         x="18"
+         y="36"
+         font-size="20"
+         font-weight="700"
+         fill="#3D2600"
+         id="text23">Amber</text>
+      <text
+         x="18"
+         y="68"
+         font-size="18"
+         fill="#3D2600"
+         id="text24">#F59E0B</text>
+    </g>
+    <g
+       transform="translate(704 824)"
+       id="g26">
+      <rect
+         width="190"
+         height="92"
+         rx="18"
+         fill="#0F172A"
+         id="rect24" />
+      <text
+         x="18"
+         y="36"
+         font-size="20"
+         font-weight="700"
+         fill="#FFFFFF"
+         id="text25">Dark BG</text>
+      <text
+         x="18"
+         y="68"
+         font-size="18"
+         fill="#CBD5E1"
+         id="text26">#0F172A</text>
+    </g>
+    <g
+       transform="translate(912 824)"
+       id="g28">
+      <rect
+         width="190"
+         height="92"
+         rx="18"
+         fill="#F8FAFC"
+         stroke="#CBD5E1"
+         stroke-width="2"
+         id="rect26" />
+      <text
+         x="18"
+         y="36"
+         font-size="20"
+         font-weight="700"
+         fill="#172B4D"
+         id="text27">Light BG</text>
+      <text
+         x="18"
+         y="68"
+         font-size="18"
+         fill="#475569"
+         id="text28">#F8FAFC</text>
+    </g>
+    <g
+       transform="translate(1120 824)"
+       id="g30">
+      <rect
+         width="190"
+         height="92"
+         rx="18"
+         fill="#CBD5E1"
+         id="rect28" />
+      <text
+         x="18"
+         y="36"
+         font-size="20"
+         font-weight="700"
+         fill="#172B4D"
+         id="text29">Secondary</text>
+      <text
+         x="18"
+         y="68"
+         font-size="18"
+         fill="#475569"
+         id="text30">#CBD5E1</text>
+    </g>
+  </g>
+  <metadata
+     id="metadata31">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:title>PixoPDF logo system and color palette</dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+</svg>

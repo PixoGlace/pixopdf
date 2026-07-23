@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Diviser — thème dark</title>
+  <desc id="desc">Icône vectorielle PixoPDF pour Diviser.</desc>
+
+
+  <rect x="9" y="15" width="17" height="34" rx="3" fill="none" stroke="#F8FAFC" stroke-width="4"/>
+  <rect x="38" y="15" width="17" height="34" rx="3" fill="none" stroke="#14B8A6" stroke-width="4"/>
+  <path d="M32 9v46" fill="none" stroke="#14B8A6" stroke-width="4" stroke-linecap="round" stroke-dasharray="3 6"/>
+
+</svg>

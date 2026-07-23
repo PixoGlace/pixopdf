@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Paramètres — thème dark</title>
+  <desc id="desc">Icône vectorielle PixoPDF pour Paramètres.</desc>
+
+
+  <circle cx="32" cy="32" r="10" fill="none" stroke="#14B8A6" stroke-width="4"/>
+  <path d="M32 7v7M32 50v7M7 32h7M50 32h7M14.3 14.3l5 5M44.7 44.7l5 5M49.7 14.3l-5 5M19.3 44.7l-5 5"
+        fill="none" stroke="#F8FAFC" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="32" cy="32" r="21" fill="none" stroke="#F8FAFC" stroke-width="4" stroke-dasharray="8 5"/>
+
+</svg>
