@@ -1,3 +1,5 @@
 """PixoPDF — local PDF tools."""
 
-__version__ = "0.1.0"
+from pixopdf.config import VERSION
+
+__version__ = VERSION

@@ -1,0 +1,1474 @@
+"""Language catalogue and translation helpers for PixoPDF.
+
+The catalogue deliberately uses stable semantic keys rather than widget names.
+This keeps translations reusable by the main window, workspace and dialogs.
+"""
+
+from typing import TypedDict
+
+
+class LanguageInfo(TypedDict):
+    """Metadata used to populate a language selector."""
+
+    name: str
+    rtl: bool
+
+
+DEFAULT_LANGUAGE = "fr"
+
+LANGUAGES: dict[str, LanguageInfo] = {
+    "fr": {"name": "Français", "rtl": False},
+    "en": {"name": "English", "rtl": False},
+    "zh": {"name": "中文", "rtl": False},
+    "ar": {"name": "العربية", "rtl": True},
+}
+
+
+_FR: dict[str, str] = {
+    # Global navigation and statuses.
+    "language": "Langue",
+    "home": "Accueil",
+    "undo": "Annuler",
+    "redo": "Rétablir",
+    "add_pdfs": "Ajouter des PDF",
+    "export": "Exporter",
+    "export_and_merge": "Fusionner et exporter",
+    "split_and_export": "Diviser et exporter",
+    "change_theme": "Changer de thème",
+    "change_tool": "Changer d’outil",
+    "available": "Disponible",
+    "essential_features": "Fonctions essentielles",
+    "coming_soon": "Bientôt",
+    "processing_local": "Traitement local",
+    "page": "page",
+    "pages": "pages",
+    "document": "document",
+    "documents": "documents",
+    "active": "active",
+    "deleted": "supprimée",
+    "selected": "sélectionnée",
+    "added": "ajoutée",
+    "moved": "déplacée",
+    "modified": "modifiée",
+    "left": "gauche",
+    "right": "droite",
+    # Home.
+    "home_title": "Bienvenue dans PixoPDF",
+    "home_description": "Organisez, transformez et protégez vos PDF localement.",
+    "open_pdfs": "Ouvrir des fichiers PDF",
+    "drop_prompt": "Glissez-déposez vos fichiers PDF ici",
+    "drop_or_browse": "ou cliquez pour parcourir",
+    "privacy_local": "Traitement 100 % local • aucun fichier envoyé en ligne",
+    "home_close_tooltip": "Fermer les fichiers ouverts et revenir à l’accueil",
+    # Open documents panel.
+    "opened_files": "Fichiers ouverts",
+    "sources_unchanged": "Les fichiers sources restent toujours inchangés.",
+    "documents_count": "Documents ({count})",
+    "remove_pdf": "Retirer ce PDF",
+    "close_pdf": "Fermer ce PDF",
+    "close_all_files": "Fermer tous les fichiers",
+    "add_pdf_tooltip": "Ajouter un ou plusieurs fichiers PDF au workspace",
+    "remove_pdf_tooltip": (
+        "Retirer le document du workspace sans supprimer le fichier original"
+    ),
+    "close_all_tooltip": "Fermer tous les fichiers et créer un workspace vide",
+    # Page workspace.
+    "no_page": "Aucune page",
+    "add_pdf_or_blank": (
+        "Ajoutez un PDF ou créez une page blanche.\n"
+        "Les vignettes apparaîtront ici, sans modifier vos fichiers originaux."
+    ),
+    "choose_pdfs": "Choisir des fichiers PDF",
+    "create_blank_a4": "Créer une page blanche A4",
+    "search_page": "Rechercher une page",
+    "no_page_selected": "Aucune page sélectionnée",
+    "selected_pages_count": "{count} page(s) sélectionnée(s)",
+    "select_all": "Tout sélectionner",
+    "all_pages": "Toutes les pages",
+    "page_count": "{count} page(s)",
+    "options": "Options",
+    "workspace_status": (
+        "{pages} page(s) au total     {documents} document(s)     Traitement local"
+    ),
+    "fixed_index": "Page source {number}",
+    "outside_output": "Hors sortie",
+    "generated_pdf": "PDF {number}",
+    "generated_pdf_more": "PDF {number} +{count}",
+    "split_preview_legend": "Aperçu : une couleur et un badge par PDF généré",
+    # Mode labels and home/workspace descriptions.
+    "mode_organize_label": "Organiser",
+    "mode_organize_home_title": "Organisez les pages de vos PDF",
+    "mode_organize_home_description": (
+        "Réordonnez, tournez, dupliquez ou retirez des pages sans modifier l’original."
+    ),
+    "mode_organize_workspace_title": "Toutes les pages",
+    "mode_merge_label": "Fusionner",
+    "mode_merge_home_title": "Fusionnez plusieurs PDF",
+    "mode_merge_home_description": (
+        "Déposez plusieurs documents, ajustez leur ordre puis exportez un PDF unique."
+    ),
+    "mode_merge_workspace_title": "Pages à fusionner",
+    "mode_split_label": "Diviser",
+    "mode_split_home_title": "Divisez un PDF avec précision",
+    "mode_split_home_description": (
+        "Créez un PDF par page, par lots ou à partir de plages personnalisées."
+    ),
+    "mode_split_workspace_title": "Pages à diviser",
+    "mode_layout_label": "Mise en page",
+    "mode_layout_home_title": "Préparez la mise en page",
+    "mode_layout_home_description": (
+        "Ajoutez des pages blanches et préparez vos documents pour l’écran ou l’impression."
+    ),
+    "mode_layout_workspace_title": "Pages à mettre en page",
+    "mode_convert_label": "Convertir",
+    "mode_convert_home_title": "Convertissez vos documents",
+    "mode_convert_home_description": (
+        "Transformez localement un PDF en images ou des images en PDF."
+    ),
+    "mode_convert_workspace_title": "Document à convertir",
+    "mode_protect_label": "Protéger",
+    "mode_protect_home_title": "Protégez vos PDF",
+    "mode_protect_home_description": (
+        "Ajoutez un mot de passe et contrôlez les permissions sans envoyer vos fichiers."
+    ),
+    "mode_protect_workspace_title": "Document à protéger",
+    "mode_sign_label": "Signer",
+    "mode_sign_home_title": "Signez et validez vos PDF",
+    "mode_sign_home_description": (
+        "Préparez une signature visuelle ou une signature numérique vérifiable."
+    ),
+    "mode_sign_workspace_title": "Document à signer",
+    "mode_compress_label": "Compresser",
+    "mode_compress_home_title": "Réduisez la taille de vos PDF",
+    "mode_compress_home_description": (
+        "Choisissez un profil de compression adapté à l’envoi, au web ou à l’archivage."
+    ),
+    "mode_compress_workspace_title": "Document à compresser",
+    # Organize options.
+    "organize_short_description": (
+        "Réordonnez, tournez, dupliquez, insérez ou retirez des pages."
+    ),
+    "organize_select_hint": "Sélectionnez une ou plusieurs miniatures pour activer les actions.",
+    "organize_clear_selection": "Effacer la sélection",
+    "organize_search_paused": "Réorganisation suspendue",
+    "organize_search_paused_detail": (
+        "Effacez la recherche pour déplacer de nouveau les pages."
+    ),
+    "clear_search": "Effacer la recherche",
+    "move": "Déplacer",
+    "move_select_hint": "Sélectionnez des pages à déplacer.",
+    "move_previous": "Reculer",
+    "move_next": "Avancer",
+    "move_start": "Au début",
+    "move_end": "À la fin",
+    "fixed_indices_drag": "Indices fixes · glisser-déposer actif",
+    "modify": "Modifier",
+    "rotate_left": "90° gauche",
+    "rotate_right": "90° droite",
+    "duplicate_page": "Dupliquer la page",
+    "insert_page": "Insérer une page",
+    "blank_page": "Page blanche",
+    "blank_position": "Choisir la position",
+    "blank_after": "Après la sélection · A4 portrait",
+    "blank_before": "Avant la sélection · A4 portrait",
+    "blank_end": "À la fin du document · A4 portrait",
+    "blank_other_format": "Choisir un autre format",
+    "blank_landscape": "A4 paysage · après la sélection",
+    "blank_a5": "A5 portrait · après la sélection",
+    "delete_page": "Supprimer la page",
+    "delete_pages": "Supprimer les pages",
+    "moved_pages": "Pages déplacées",
+    "modified_pages": "Pages modifiées",
+    "deleted_pages": "Pages supprimées",
+    # Merge options.
+    "merge_need_two": "Ajoutez au moins deux PDF pour lancer la fusion.",
+    "merge_ready": (
+        "{documents} documents • {pages} pages actives\n"
+        "Prêt à fusionner dans l’ordre affiché."
+    ),
+    "merge_one_document": (
+        "1 document • {pages} page(s) active(s)\n"
+        "Ajoutez un autre PDF pour créer une fusion."
+    ),
+    "merge_order_title": "Ordre et sortie",
+    "merge_order_hint": (
+        "L’ordre visible des miniatures sera l’ordre du PDF final. "
+        "Faites glisser les pages pour l’ajuster."
+    ),
+    "merge_export_hint": (
+        "Quand deux documents sont prêts, utilisez « Fusionner et exporter ». "
+        "Les sources ne sont jamais remplacées."
+    ),
+    # Split options.
+    "split_choose_method": "Choisissez comment créer les nouveaux PDF",
+    "split_each": "Un PDF par page",
+    "split_batch": "Par lots de pages",
+    "split_ranges": "Plages personnalisées",
+    "split_each_description": "Chaque page active devient un fichier PDF distinct.",
+    "split_batch_description": (
+        "Créez des groupes consécutifs contenant le même nombre de pages."
+    ),
+    "split_ranges_description": (
+        "Composez chaque PDF manuellement. Séparez les fichiers avec « ; »."
+    ),
+    "pages_per_file": "Pages par fichier",
+    "split_ranges_placeholder": "Ex. 1-3; 4-6; 7",
+    "split_ranges_help": (
+        "Séparez les fichiers par « ; » et les pages d’un fichier par « , »."
+    ),
+    "split_add_pdf": "Ajoutez un PDF pour préparer la division.",
+    "split_no_active_page": "Aucune page active à diviser.",
+    "split_active_pages": "{count} page(s) active(s) à diviser.",
+    "split_preview_ready": "Aperçu prêt • {count} fichier(s) PDF seront créés.",
+    "split_ignored_deleted": "{count} page(s) supprimée(s) seront ignorée(s).",
+    "split_invalid_ranges": "Vérifiez les plages de pages indiquées.",
+    "split_range_out_of_bounds": "La page {page} n’existe pas dans le document actif.",
+    # Layout and planned tools.
+    "layout_short_description": "Ajoutez des pages blanches et préparez la mise en page.",
+    "layout_blank_title": "Ajouter une page blanche",
+    "layout_blank_description": (
+        "Ajoutez une page A4 portrait après la sélection ou à la fin du projet."
+    ),
+    "planned_actions": "Fonctions prévues",
+    "feature_unavailable": "{feature} sera bientôt disponible.",
+    # Dialog titles, prompts and close confirmation.
+    "untitled_project": "Projet sans titre",
+    "open_pdf_dialog": "Ouvrir des PDF",
+    "split_folder_dialog": "Choisir le dossier des PDF divisés",
+    "export_pdf_dialog": "Exporter le PDF",
+    "invalid_destination_title": "Destination invalide",
+    "invalid_destination_message": (
+        "Choisissez un nouveau fichier : PixoPDF ne remplace jamais un document source."
+    ),
+    "operation_in_progress_title": "Opération en cours",
+    "operation_in_progress_message": (
+        "Attendez la fin de l’opération avant de quitter PixoPDF."
+    ),
+    "unexported_project_title": "Projet non exporté",
+    "unexported_project_text": "Des modifications n’ont pas été exportées.",
+    "unexported_project_question": "Voulez-vous exporter avant de quitter ?",
+    "export_ellipsis": "Exporter…",
+    "quit_without_export": "Quitter sans exporter",
+    # Runtime messages.
+    "reading_files": "Lecture de {count} fichier(s)…",
+    "import_error_title": "Import impossible",
+    "import_unexpected": "Résultat d’import inattendu",
+    "documents_added": "{documents} document(s) ajouté(s) • {pages} page(s)",
+    "pages_marked_deleted": (
+        "{count} page(s) marquée(s) supprimée(s) • elles ne seront pas exportées"
+    ),
+    "pages_restored": "{count} page(s) restaurée(s)",
+    "document_removed": (
+        "{name} retiré du workspace • {pages} page(s) retirée(s) • Ctrl+Z pour annuler"
+    ),
+    "workspace_cleared": (
+        "Workspace vidé • {documents} document(s) et {pages} page(s) retirés • "
+        "Ctrl+Z pour annuler"
+    ),
+    "pages_duplicated": "{count} page(s) dupliquée(s)",
+    "blank_page_added": "Page blanche {format} ajoutée • Ctrl+Z pour annuler",
+    "pages_rotated": "{count} page(s) tournée(s) vers la {direction}",
+    "reorder_failed": "La réorganisation a échoué",
+    "page_order_updated": "Ordre des pages mis à jour • Ctrl+Z pour annuler",
+    "split_in_progress": "Division en {count} fichier(s) PDF en cours…",
+    "split_error_title": "Division impossible",
+    "split_unexpected": "Résultat de division inattendu",
+    "split_created": "{count} PDF créé(s) dans {destination}",
+    "export_in_progress": "Export du PDF en cours…",
+    "export_error_title": "Export impossible",
+    "export_unexpected": "Résultat d’export inattendu",
+    "export_done": "PDF exporté dans {destination}",
+}
+
+
+_EN: dict[str, str] = {
+    "language": "Language",
+    "home": "Home",
+    "undo": "Undo",
+    "redo": "Redo",
+    "add_pdfs": "Add PDFs",
+    "export": "Export",
+    "export_and_merge": "Merge and export",
+    "split_and_export": "Split and export",
+    "change_theme": "Change theme",
+    "change_tool": "Change tool",
+    "available": "Available",
+    "essential_features": "Essential features",
+    "coming_soon": "Coming soon",
+    "processing_local": "Local processing",
+    "page": "page",
+    "pages": "pages",
+    "document": "document",
+    "documents": "documents",
+    "active": "active",
+    "deleted": "deleted",
+    "selected": "selected",
+    "added": "added",
+    "moved": "moved",
+    "modified": "modified",
+    "left": "left",
+    "right": "right",
+    "home_title": "Welcome to PixoPDF",
+    "home_description": "Organize, transform and protect your PDFs locally.",
+    "open_pdfs": "Open PDF files",
+    "drop_prompt": "Drag and drop your PDF files here",
+    "drop_or_browse": "or click to browse",
+    "privacy_local": "100% local processing • no files uploaded",
+    "home_close_tooltip": "Close open files and return home",
+    "opened_files": "Open files",
+    "sources_unchanged": "Source files always remain unchanged.",
+    "documents_count": "Documents ({count})",
+    "remove_pdf": "Remove this PDF",
+    "close_pdf": "Close this PDF",
+    "close_all_files": "Close all files",
+    "add_pdf_tooltip": "Add one or more PDF files to the workspace",
+    "remove_pdf_tooltip": "Remove the document without deleting the original file",
+    "close_all_tooltip": "Close all files and create an empty workspace",
+    "no_page": "No pages",
+    "add_pdf_or_blank": (
+        "Add a PDF or create a blank page.\n"
+        "Thumbnails will appear here without changing your original files."
+    ),
+    "choose_pdfs": "Choose PDF files",
+    "create_blank_a4": "Create a blank A4 page",
+    "search_page": "Search pages",
+    "no_page_selected": "No page selected",
+    "selected_pages_count": "{count} page(s) selected",
+    "select_all": "Select all",
+    "all_pages": "All pages",
+    "page_count": "{count} page(s)",
+    "options": "Options",
+    "workspace_status": (
+        "{pages} page(s) total     {documents} document(s)     Local processing"
+    ),
+    "fixed_index": "Source page {number}",
+    "outside_output": "Excluded",
+    "generated_pdf": "PDF {number}",
+    "generated_pdf_more": "PDF {number} +{count}",
+    "split_preview_legend": "Preview: one color and badge per generated PDF",
+    "mode_organize_label": "Organize",
+    "mode_organize_home_title": "Organize your PDF pages",
+    "mode_organize_home_description": (
+        "Reorder, rotate, duplicate or remove pages without changing the original."
+    ),
+    "mode_organize_workspace_title": "All pages",
+    "mode_merge_label": "Merge",
+    "mode_merge_home_title": "Merge multiple PDFs",
+    "mode_merge_home_description": (
+        "Drop multiple documents, adjust their order, then export one PDF."
+    ),
+    "mode_merge_workspace_title": "Pages to merge",
+    "mode_split_label": "Split",
+    "mode_split_home_title": "Split a PDF precisely",
+    "mode_split_home_description": (
+        "Create one PDF per page, in batches, or from custom ranges."
+    ),
+    "mode_split_workspace_title": "Pages to split",
+    "mode_layout_label": "Layout",
+    "mode_layout_home_title": "Prepare your page layout",
+    "mode_layout_home_description": (
+        "Add blank pages and prepare documents for screens or printing."
+    ),
+    "mode_layout_workspace_title": "Pages to lay out",
+    "mode_convert_label": "Convert",
+    "mode_convert_home_title": "Convert your documents",
+    "mode_convert_home_description": "Convert a PDF to images or images to PDF locally.",
+    "mode_convert_workspace_title": "Document to convert",
+    "mode_protect_label": "Protect",
+    "mode_protect_home_title": "Protect your PDFs",
+    "mode_protect_home_description": (
+        "Add a password and control permissions without uploading your files."
+    ),
+    "mode_protect_workspace_title": "Document to protect",
+    "mode_sign_label": "Sign",
+    "mode_sign_home_title": "Sign and validate your PDFs",
+    "mode_sign_home_description": (
+        "Prepare a visual signature or a verifiable digital signature."
+    ),
+    "mode_sign_workspace_title": "Document to sign",
+    "mode_compress_label": "Compress",
+    "mode_compress_home_title": "Reduce your PDF file size",
+    "mode_compress_home_description": (
+        "Choose a compression profile for sharing, the web or archiving."
+    ),
+    "mode_compress_workspace_title": "Document to compress",
+    "organize_short_description": "Reorder, rotate, duplicate, insert or remove pages.",
+    "organize_select_hint": "Select one or more thumbnails to enable actions.",
+    "organize_clear_selection": "Clear selection",
+    "organize_search_paused": "Reordering paused",
+    "organize_search_paused_detail": "Clear the search to move pages again.",
+    "clear_search": "Clear search",
+    "move": "Move",
+    "move_select_hint": "Select pages to move.",
+    "move_previous": "Move back",
+    "move_next": "Move forward",
+    "move_start": "To start",
+    "move_end": "To end",
+    "fixed_indices_drag": "Fixed indices · drag and drop enabled",
+    "modify": "Edit",
+    "rotate_left": "90° left",
+    "rotate_right": "90° right",
+    "duplicate_page": "Duplicate page",
+    "insert_page": "Insert a page",
+    "blank_page": "Blank page",
+    "blank_position": "Choose position",
+    "blank_after": "After selection · A4 portrait",
+    "blank_before": "Before selection · A4 portrait",
+    "blank_end": "End of document · A4 portrait",
+    "blank_other_format": "Choose another format",
+    "blank_landscape": "A4 landscape · after selection",
+    "blank_a5": "A5 portrait · after selection",
+    "delete_page": "Delete page",
+    "delete_pages": "Delete pages",
+    "moved_pages": "Moved pages",
+    "modified_pages": "Modified pages",
+    "deleted_pages": "Deleted pages",
+    "merge_need_two": "Add at least two PDFs to merge them.",
+    "merge_ready": (
+        "{documents} documents • {pages} active pages\n"
+        "Ready to merge in the displayed order."
+    ),
+    "merge_one_document": (
+        "1 document • {pages} active page(s)\n"
+        "Add another PDF to create a merge."
+    ),
+    "merge_order_title": "Order and output",
+    "merge_order_hint": (
+        "The visible thumbnail order will be the final PDF order. Drag pages to adjust it."
+    ),
+    "merge_export_hint": (
+        "When two documents are ready, use “Merge and export”. "
+        "Source files are never replaced."
+    ),
+    "split_choose_method": "Choose how to create the new PDFs",
+    "split_each": "One PDF per page",
+    "split_batch": "Page batches",
+    "split_ranges": "Custom ranges",
+    "split_each_description": "Each active page becomes a separate PDF file.",
+    "split_batch_description": "Create consecutive groups with the same number of pages.",
+    "split_ranges_description": (
+        "Build each PDF manually. Separate output files with a semicolon."
+    ),
+    "pages_per_file": "Pages per file",
+    "split_ranges_placeholder": "E.g. 1-3; 4-6; 7",
+    "split_ranges_help": (
+        "Separate output files with “;” and pages within one file with “,”."
+    ),
+    "split_add_pdf": "Add a PDF to prepare the split.",
+    "split_no_active_page": "There are no active pages to split.",
+    "split_active_pages": "{count} active page(s) to split.",
+    "split_preview_ready": "Preview ready • {count} PDF file(s) will be created.",
+    "split_ignored_deleted": "{count} deleted page(s) will be ignored.",
+    "split_invalid_ranges": "Check the page ranges.",
+    "split_range_out_of_bounds": "Page {page} does not exist in the active document.",
+    "layout_short_description": "Add blank pages and prepare the page layout.",
+    "layout_blank_title": "Add a blank page",
+    "layout_blank_description": (
+        "Add an A4 portrait page after the selection or at the end of the project."
+    ),
+    "planned_actions": "Planned features",
+    "feature_unavailable": "{feature} will be available soon.",
+    "untitled_project": "Untitled project",
+    "open_pdf_dialog": "Open PDFs",
+    "split_folder_dialog": "Choose a folder for split PDFs",
+    "export_pdf_dialog": "Export PDF",
+    "invalid_destination_title": "Invalid destination",
+    "invalid_destination_message": (
+        "Choose a new file: PixoPDF never overwrites a source document."
+    ),
+    "operation_in_progress_title": "Operation in progress",
+    "operation_in_progress_message": "Wait for the operation to finish before closing PixoPDF.",
+    "unexported_project_title": "Unexported project",
+    "unexported_project_text": "Some changes have not been exported.",
+    "unexported_project_question": "Would you like to export before closing?",
+    "export_ellipsis": "Export…",
+    "quit_without_export": "Quit without exporting",
+    "reading_files": "Reading {count} file(s)…",
+    "import_error_title": "Import failed",
+    "import_unexpected": "Unexpected import result",
+    "documents_added": "{documents} document(s) added • {pages} page(s)",
+    "pages_marked_deleted": "{count} page(s) marked deleted • they will not be exported",
+    "pages_restored": "{count} page(s) restored",
+    "document_removed": (
+        "{name} removed from workspace • {pages} page(s) removed • Ctrl+Z to undo"
+    ),
+    "workspace_cleared": (
+        "Workspace cleared • {documents} document(s) and {pages} page(s) removed • "
+        "Ctrl+Z to undo"
+    ),
+    "pages_duplicated": "{count} page(s) duplicated",
+    "blank_page_added": "Blank {format} page added • Ctrl+Z to undo",
+    "pages_rotated": "{count} page(s) rotated {direction}",
+    "reorder_failed": "Reordering failed",
+    "page_order_updated": "Page order updated • Ctrl+Z to undo",
+    "split_in_progress": "Splitting into {count} PDF file(s)…",
+    "split_error_title": "Split failed",
+    "split_unexpected": "Unexpected split result",
+    "split_created": "{count} PDFs created in {destination}",
+    "export_in_progress": "Exporting PDF…",
+    "export_error_title": "Export failed",
+    "export_unexpected": "Unexpected export result",
+    "export_done": "PDF exported to {destination}",
+}
+
+
+_ZH: dict[str, str] = {
+    "language": "语言",
+    "home": "主页",
+    "undo": "撤销",
+    "redo": "重做",
+    "add_pdfs": "添加 PDF",
+    "export": "导出",
+    "export_and_merge": "合并并导出",
+    "split_and_export": "拆分并导出",
+    "change_theme": "切换主题",
+    "change_tool": "切换工具",
+    "available": "可用",
+    "essential_features": "核心功能",
+    "coming_soon": "即将推出",
+    "processing_local": "本地处理",
+    "page": "页",
+    "pages": "页",
+    "document": "文档",
+    "documents": "文档",
+    "active": "有效",
+    "deleted": "已删除",
+    "selected": "已选择",
+    "added": "已添加",
+    "moved": "已移动",
+    "modified": "已修改",
+    "left": "左",
+    "right": "右",
+    "home_title": "欢迎使用 PixoPDF",
+    "home_description": "在本地整理、转换和保护您的 PDF。",
+    "open_pdfs": "打开 PDF 文件",
+    "drop_prompt": "将 PDF 文件拖放到此处",
+    "drop_or_browse": "或点击浏览",
+    "privacy_local": "100% 本地处理 • 文件不会上传",
+    "home_close_tooltip": "关闭已打开的文件并返回主页",
+    "opened_files": "已打开的文件",
+    "sources_unchanged": "源文件始终保持不变。",
+    "documents_count": "文档（{count}）",
+    "remove_pdf": "移除此 PDF",
+    "close_pdf": "关闭此 PDF",
+    "close_all_files": "关闭所有文件",
+    "add_pdf_tooltip": "向工作区添加一个或多个 PDF 文件",
+    "remove_pdf_tooltip": "从工作区移除文档，但不删除原始文件",
+    "close_all_tooltip": "关闭所有文件并创建空白工作区",
+    "no_page": "没有页面",
+    "add_pdf_or_blank": "添加 PDF 或创建空白页。\n缩略图将显示在此处，原始文件不会改变。",
+    "choose_pdfs": "选择 PDF 文件",
+    "create_blank_a4": "创建 A4 空白页",
+    "search_page": "搜索页面",
+    "no_page_selected": "未选择页面",
+    "selected_pages_count": "已选择 {count} 页",
+    "select_all": "全选",
+    "all_pages": "所有页面",
+    "page_count": "{count} 页",
+    "options": "选项",
+    "workspace_status": "共 {pages} 页     {documents} 个文档     本地处理",
+    "fixed_index": "源页面 {number}",
+    "outside_output": "不输出",
+    "generated_pdf": "PDF {number}",
+    "generated_pdf_more": "PDF {number} +{count}",
+    "split_preview_legend": "预览：每个生成的 PDF 使用一种颜色和一个徽标",
+    "mode_organize_label": "整理",
+    "mode_organize_home_title": "整理 PDF 页面",
+    "mode_organize_home_description": "重新排序、旋转、复制或移除页面，不改变原始文件。",
+    "mode_organize_workspace_title": "所有页面",
+    "mode_merge_label": "合并",
+    "mode_merge_home_title": "合并多个 PDF",
+    "mode_merge_home_description": "添加多个文档、调整顺序，然后导出为一个 PDF。",
+    "mode_merge_workspace_title": "待合并页面",
+    "mode_split_label": "拆分",
+    "mode_split_home_title": "精确拆分 PDF",
+    "mode_split_home_description": "按单页、批次或自定义范围创建 PDF。",
+    "mode_split_workspace_title": "待拆分页面",
+    "mode_layout_label": "页面布局",
+    "mode_layout_home_title": "准备页面布局",
+    "mode_layout_home_description": "添加空白页，为屏幕显示或打印准备文档。",
+    "mode_layout_workspace_title": "待排版页面",
+    "mode_convert_label": "转换",
+    "mode_convert_home_title": "转换文档",
+    "mode_convert_home_description": "在本地将 PDF 转为图像，或将图像转为 PDF。",
+    "mode_convert_workspace_title": "待转换文档",
+    "mode_protect_label": "保护",
+    "mode_protect_home_title": "保护 PDF",
+    "mode_protect_home_description": "添加密码并控制权限，无需上传文件。",
+    "mode_protect_workspace_title": "待保护文档",
+    "mode_sign_label": "签名",
+    "mode_sign_home_title": "签署并验证 PDF",
+    "mode_sign_home_description": "准备可视签名或可验证的数字签名。",
+    "mode_sign_workspace_title": "待签名文档",
+    "mode_compress_label": "压缩",
+    "mode_compress_home_title": "减小 PDF 文件大小",
+    "mode_compress_home_description": "选择适合分享、网页或存档的压缩配置。",
+    "mode_compress_workspace_title": "待压缩文档",
+    "organize_short_description": "重新排序、旋转、复制、插入或移除页面。",
+    "organize_select_hint": "选择一个或多个缩略图以启用操作。",
+    "organize_clear_selection": "清除选择",
+    "organize_search_paused": "页面排序已暂停",
+    "organize_search_paused_detail": "清除搜索后可继续移动页面。",
+    "clear_search": "清除搜索",
+    "move": "移动",
+    "move_select_hint": "选择要移动的页面。",
+    "move_previous": "向前移动",
+    "move_next": "向后移动",
+    "move_start": "移到开头",
+    "move_end": "移到末尾",
+    "fixed_indices_drag": "固定索引 · 可拖放",
+    "modify": "修改",
+    "rotate_left": "左转 90°",
+    "rotate_right": "右转 90°",
+    "duplicate_page": "复制页面",
+    "insert_page": "插入页面",
+    "blank_page": "空白页",
+    "blank_position": "选择位置",
+    "blank_after": "选择之后 · A4 纵向",
+    "blank_before": "选择之前 · A4 纵向",
+    "blank_end": "文档末尾 · A4 纵向",
+    "blank_other_format": "选择其他格式",
+    "blank_landscape": "选择之后 · A4 横向",
+    "blank_a5": "选择之后 · A5 纵向",
+    "delete_page": "删除页面",
+    "delete_pages": "删除页面",
+    "moved_pages": "已移动页面",
+    "modified_pages": "已修改页面",
+    "deleted_pages": "已删除页面",
+    "merge_need_two": "请至少添加两个 PDF 以开始合并。",
+    "merge_ready": "{documents} 个文档 • {pages} 个有效页面\n可按显示顺序合并。",
+    "merge_one_document": "1 个文档 • {pages} 个有效页面\n请再添加一个 PDF 进行合并。",
+    "merge_order_title": "顺序与输出",
+    "merge_order_hint": "缩略图的显示顺序就是最终 PDF 的顺序。拖动页面即可调整。",
+    "merge_export_hint": "准备好两个文档后，使用“合并并导出”。源文件不会被替换。",
+    "split_choose_method": "选择创建新 PDF 的方式",
+    "split_each": "每页一个 PDF",
+    "split_batch": "按页分批",
+    "split_ranges": "自定义范围",
+    "split_each_description": "每个有效页面都会成为单独的 PDF 文件。",
+    "split_batch_description": "创建包含相同页数的连续分组。",
+    "split_ranges_description": "手动组合每个 PDF。使用分号分隔输出文件。",
+    "pages_per_file": "每个文件的页数",
+    "split_ranges_placeholder": "例如 1-3; 4-6; 7",
+    "split_ranges_help": "使用“;”分隔文件，使用“,”分隔同一文件中的页面。",
+    "split_add_pdf": "添加一个 PDF 以准备拆分。",
+    "split_no_active_page": "没有可拆分的有效页面。",
+    "split_active_pages": "{count} 个有效页面待拆分。",
+    "split_preview_ready": "预览就绪 • 将创建 {count} 个 PDF 文件。",
+    "split_ignored_deleted": "将忽略 {count} 个已删除页面。",
+    "split_invalid_ranges": "请检查指定的页面范围。",
+    "split_range_out_of_bounds": "当前文档中不存在第 {page} 页。",
+    "layout_short_description": "添加空白页并准备页面布局。",
+    "layout_blank_title": "添加空白页",
+    "layout_blank_description": "在所选页面之后或项目末尾添加 A4 纵向页面。",
+    "planned_actions": "计划功能",
+    "feature_unavailable": "{feature} 即将推出。",
+    "untitled_project": "未命名项目",
+    "open_pdf_dialog": "打开 PDF",
+    "split_folder_dialog": "选择拆分 PDF 的文件夹",
+    "export_pdf_dialog": "导出 PDF",
+    "invalid_destination_title": "目标无效",
+    "invalid_destination_message": "请选择新文件：PixoPDF 不会覆盖源文档。",
+    "operation_in_progress_title": "操作正在进行",
+    "operation_in_progress_message": "请等待操作完成后再关闭 PixoPDF。",
+    "unexported_project_title": "项目尚未导出",
+    "unexported_project_text": "部分修改尚未导出。",
+    "unexported_project_question": "是否要在退出前导出？",
+    "export_ellipsis": "导出…",
+    "quit_without_export": "不导出并退出",
+    "reading_files": "正在读取 {count} 个文件…",
+    "import_error_title": "导入失败",
+    "import_unexpected": "意外的导入结果",
+    "documents_added": "已添加 {documents} 个文档 • {pages} 页",
+    "pages_marked_deleted": "已将 {count} 页标记为删除 • 导出时会忽略",
+    "pages_restored": "已恢复 {count} 页",
+    "document_removed": "已从工作区移除 {name} • 移除 {pages} 页 • Ctrl+Z 撤销",
+    "workspace_cleared": (
+        "工作区已清空 • 移除 {documents} 个文档和 {pages} 页 • Ctrl+Z 撤销"
+    ),
+    "pages_duplicated": "已复制 {count} 页",
+    "blank_page_added": "已添加 {format} 空白页 • Ctrl+Z 撤销",
+    "pages_rotated": "已向{direction}旋转 {count} 页",
+    "reorder_failed": "重新排序失败",
+    "page_order_updated": "页面顺序已更新 • Ctrl+Z 撤销",
+    "split_in_progress": "正在拆分为 {count} 个 PDF…",
+    "split_error_title": "拆分失败",
+    "split_unexpected": "意外的拆分结果",
+    "split_created": "已在 {destination} 创建 {count} 个 PDF",
+    "export_in_progress": "正在导出 PDF…",
+    "export_error_title": "导出失败",
+    "export_unexpected": "意外的导出结果",
+    "export_done": "PDF 已导出到 {destination}",
+}
+
+
+_AR: dict[str, str] = {
+    "language": "اللغة",
+    "home": "الرئيسية",
+    "undo": "تراجع",
+    "redo": "إعادة",
+    "add_pdfs": "إضافة ملفات PDF",
+    "export": "تصدير",
+    "export_and_merge": "دمج وتصدير",
+    "split_and_export": "تقسيم وتصدير",
+    "change_theme": "تغيير المظهر",
+    "change_tool": "تغيير الأداة",
+    "available": "متاح",
+    "essential_features": "الميزات الأساسية",
+    "coming_soon": "قريباً",
+    "processing_local": "معالجة محلية",
+    "page": "صفحة",
+    "pages": "صفحات",
+    "document": "مستند",
+    "documents": "مستندات",
+    "active": "نشطة",
+    "deleted": "محذوفة",
+    "selected": "محددة",
+    "added": "مضافة",
+    "moved": "منقولة",
+    "modified": "معدّلة",
+    "left": "اليسار",
+    "right": "اليمين",
+    "home_title": "مرحباً بك في PixoPDF",
+    "home_description": "نظّم ملفات PDF وحوّلها واحمها محلياً.",
+    "open_pdfs": "فتح ملفات PDF",
+    "drop_prompt": "اسحب ملفات PDF وأفلتها هنا",
+    "drop_or_browse": "أو انقر للاستعراض",
+    "privacy_local": "معالجة محلية 100٪ • لا يتم رفع أي ملف",
+    "home_close_tooltip": "إغلاق الملفات المفتوحة والعودة إلى الرئيسية",
+    "opened_files": "الملفات المفتوحة",
+    "sources_unchanged": "تبقى الملفات المصدر دون أي تغيير.",
+    "documents_count": "المستندات ({count})",
+    "remove_pdf": "إزالة ملف PDF",
+    "close_pdf": "إغلاق ملف PDF",
+    "close_all_files": "إغلاق كل الملفات",
+    "add_pdf_tooltip": "إضافة ملف PDF واحد أو أكثر إلى مساحة العمل",
+    "remove_pdf_tooltip": "إزالة المستند من مساحة العمل دون حذف الملف الأصلي",
+    "close_all_tooltip": "إغلاق كل الملفات وإنشاء مساحة عمل فارغة",
+    "no_page": "لا توجد صفحات",
+    "add_pdf_or_blank": (
+        "أضف ملف PDF أو أنشئ صفحة فارغة.\n"
+        "ستظهر الصور المصغرة هنا من دون تعديل ملفاتك الأصلية."
+    ),
+    "choose_pdfs": "اختيار ملفات PDF",
+    "create_blank_a4": "إنشاء صفحة A4 فارغة",
+    "search_page": "البحث عن صفحة",
+    "no_page_selected": "لم يتم تحديد أي صفحة",
+    "selected_pages_count": "تم تحديد {count} صفحة",
+    "select_all": "تحديد الكل",
+    "all_pages": "كل الصفحات",
+    "page_count": "{count} صفحة",
+    "options": "الخيارات",
+    "workspace_status": (
+        "{pages} صفحة إجمالاً     {documents} مستند     معالجة محلية"
+    ),
+    "fixed_index": "صفحة المصدر {number}",
+    "outside_output": "مستبعدة",
+    "generated_pdf": "PDF {number}",
+    "generated_pdf_more": "PDF {number} +{count}",
+    "split_preview_legend": "معاينة: لون وشارة لكل ملف PDF ناتج",
+    "mode_organize_label": "تنظيم",
+    "mode_organize_home_title": "نظّم صفحات PDF",
+    "mode_organize_home_description": (
+        "أعد ترتيب الصفحات أو تدويرها أو تكرارها أو إزالتها دون تعديل الأصل."
+    ),
+    "mode_organize_workspace_title": "كل الصفحات",
+    "mode_merge_label": "دمج",
+    "mode_merge_home_title": "ادمج عدة ملفات PDF",
+    "mode_merge_home_description": (
+        "أضف عدة مستندات واضبط ترتيبها ثم صدّر ملف PDF واحداً."
+    ),
+    "mode_merge_workspace_title": "صفحات الدمج",
+    "mode_split_label": "تقسيم",
+    "mode_split_home_title": "قسّم ملف PDF بدقة",
+    "mode_split_home_description": (
+        "أنشئ ملف PDF لكل صفحة أو على دفعات أو باستخدام نطاقات مخصصة."
+    ),
+    "mode_split_workspace_title": "صفحات التقسيم",
+    "mode_layout_label": "تخطيط الصفحة",
+    "mode_layout_home_title": "حضّر تخطيط الصفحات",
+    "mode_layout_home_description": (
+        "أضف صفحات فارغة وجهّز المستندات للشاشة أو الطباعة."
+    ),
+    "mode_layout_workspace_title": "صفحات التخطيط",
+    "mode_convert_label": "تحويل",
+    "mode_convert_home_title": "حوّل مستنداتك",
+    "mode_convert_home_description": (
+        "حوّل ملف PDF إلى صور أو الصور إلى PDF محلياً."
+    ),
+    "mode_convert_workspace_title": "المستند المراد تحويله",
+    "mode_protect_label": "حماية",
+    "mode_protect_home_title": "احمِ ملفات PDF",
+    "mode_protect_home_description": (
+        "أضف كلمة مرور وتحكّم في الأذونات من دون رفع ملفاتك."
+    ),
+    "mode_protect_workspace_title": "المستند المراد حمايته",
+    "mode_sign_label": "توقيع",
+    "mode_sign_home_title": "وقّع ملفات PDF وتحقق منها",
+    "mode_sign_home_description": (
+        "حضّر توقيعاً مرئياً أو توقيعاً رقمياً قابلاً للتحقق."
+    ),
+    "mode_sign_workspace_title": "المستند المراد توقيعه",
+    "mode_compress_label": "ضغط",
+    "mode_compress_home_title": "قلّل حجم ملفات PDF",
+    "mode_compress_home_description": (
+        "اختر مستوى ضغط مناسباً للمشاركة أو الويب أو الأرشفة."
+    ),
+    "mode_compress_workspace_title": "المستند المراد ضغطه",
+    "organize_short_description": "أعد ترتيب الصفحات أو تدويرها أو تكرارها أو إدراجها أو إزالتها.",
+    "organize_select_hint": "حدد صورة مصغرة واحدة أو أكثر لتفعيل الإجراءات.",
+    "organize_clear_selection": "مسح التحديد",
+    "organize_search_paused": "تم إيقاف إعادة الترتيب مؤقتاً",
+    "organize_search_paused_detail": "امسح البحث لتتمكن من نقل الصفحات مجدداً.",
+    "clear_search": "مسح البحث",
+    "move": "نقل",
+    "move_select_hint": "حدد الصفحات المراد نقلها.",
+    "move_previous": "نقل للخلف",
+    "move_next": "نقل للأمام",
+    "move_start": "إلى البداية",
+    "move_end": "إلى النهاية",
+    "fixed_indices_drag": "فهارس ثابتة · السحب والإفلات مفعّل",
+    "modify": "تعديل",
+    "rotate_left": "90° لليسار",
+    "rotate_right": "90° لليمين",
+    "duplicate_page": "تكرار الصفحة",
+    "insert_page": "إدراج صفحة",
+    "blank_page": "صفحة فارغة",
+    "blank_position": "اختيار الموضع",
+    "blank_after": "بعد التحديد · A4 عمودي",
+    "blank_before": "قبل التحديد · A4 عمودي",
+    "blank_end": "نهاية المستند · A4 عمودي",
+    "blank_other_format": "اختيار تنسيق آخر",
+    "blank_landscape": "بعد التحديد · A4 أفقي",
+    "blank_a5": "بعد التحديد · A5 عمودي",
+    "delete_page": "حذف الصفحة",
+    "delete_pages": "حذف الصفحات",
+    "moved_pages": "الصفحات المنقولة",
+    "modified_pages": "الصفحات المعدّلة",
+    "deleted_pages": "الصفحات المحذوفة",
+    "merge_need_two": "أضف ملفي PDF على الأقل لبدء الدمج.",
+    "merge_ready": (
+        "{documents} مستند • {pages} صفحة نشطة\n"
+        "جاهز للدمج وفق الترتيب المعروض."
+    ),
+    "merge_one_document": (
+        "مستند واحد • {pages} صفحة نشطة\n"
+        "أضف ملف PDF آخر لإنشاء عملية دمج."
+    ),
+    "merge_order_title": "الترتيب والإخراج",
+    "merge_order_hint": (
+        "ترتيب الصور المصغرة الظاهر هو ترتيب ملف PDF النهائي. اسحب الصفحات لضبطه."
+    ),
+    "merge_export_hint": (
+        "عندما يجهز مستندان، استخدم «دمج وتصدير». لا يتم استبدال الملفات المصدر."
+    ),
+    "split_choose_method": "اختر كيفية إنشاء ملفات PDF الجديدة",
+    "split_each": "ملف PDF لكل صفحة",
+    "split_batch": "دفعات من الصفحات",
+    "split_ranges": "نطاقات مخصصة",
+    "split_each_description": "تصبح كل صفحة نشطة ملف PDF مستقلاً.",
+    "split_batch_description": "أنشئ مجموعات متتالية تحتوي على عدد الصفحات نفسه.",
+    "split_ranges_description": (
+        "كوّن كل ملف PDF يدوياً. افصل ملفات الإخراج بعلامة الفاصلة المنقوطة."
+    ),
+    "pages_per_file": "عدد الصفحات لكل ملف",
+    "split_ranges_placeholder": "مثال: 1-3; 4-6; 7",
+    "split_ranges_help": (
+        "افصل الملفات بعلامة «;» والصفحات داخل الملف بعلامة «,»."
+    ),
+    "split_add_pdf": "أضف ملف PDF للتحضير للتقسيم.",
+    "split_no_active_page": "لا توجد صفحات نشطة للتقسيم.",
+    "split_active_pages": "{count} صفحة نشطة للتقسيم.",
+    "split_preview_ready": "المعاينة جاهزة • سيتم إنشاء {count} ملف PDF.",
+    "split_ignored_deleted": "سيتم تجاهل {count} صفحة محذوفة.",
+    "split_invalid_ranges": "تحقق من نطاقات الصفحات المحددة.",
+    "split_range_out_of_bounds": "الصفحة {page} غير موجودة في المستند النشط.",
+    "layout_short_description": "أضف صفحات فارغة وحضّر تخطيط الصفحات.",
+    "layout_blank_title": "إضافة صفحة فارغة",
+    "layout_blank_description": (
+        "أضف صفحة A4 عمودية بعد التحديد أو في نهاية المشروع."
+    ),
+    "planned_actions": "الميزات المخطط لها",
+    "feature_unavailable": "ستتوفر ميزة {feature} قريباً.",
+    "untitled_project": "مشروع بلا عنوان",
+    "open_pdf_dialog": "فتح ملفات PDF",
+    "split_folder_dialog": "اختيار مجلد ملفات PDF المقسمة",
+    "export_pdf_dialog": "تصدير PDF",
+    "invalid_destination_title": "وجهة غير صالحة",
+    "invalid_destination_message": (
+        "اختر ملفاً جديداً: لا يستبدل PixoPDF المستند المصدر أبداً."
+    ),
+    "operation_in_progress_title": "عملية قيد التنفيذ",
+    "operation_in_progress_message": (
+        "انتظر حتى تنتهي العملية قبل إغلاق PixoPDF."
+    ),
+    "unexported_project_title": "مشروع غير مُصدّر",
+    "unexported_project_text": "هناك تعديلات لم يتم تصديرها.",
+    "unexported_project_question": "هل تريد التصدير قبل الخروج؟",
+    "export_ellipsis": "تصدير…",
+    "quit_without_export": "الخروج دون تصدير",
+    "reading_files": "جارٍ قراءة {count} ملف…",
+    "import_error_title": "تعذر الاستيراد",
+    "import_unexpected": "نتيجة استيراد غير متوقعة",
+    "documents_added": "تمت إضافة {documents} مستند • {pages} صفحة",
+    "pages_marked_deleted": (
+        "تم تعليم {count} صفحة كمحذوفة • لن يتم تصديرها"
+    ),
+    "pages_restored": "تمت استعادة {count} صفحة",
+    "document_removed": (
+        "تمت إزالة {name} من مساحة العمل • أزيلت {pages} صفحة • Ctrl+Z للتراجع"
+    ),
+    "workspace_cleared": (
+        "تم إفراغ مساحة العمل • أزيل {documents} مستند و{pages} صفحة • Ctrl+Z للتراجع"
+    ),
+    "pages_duplicated": "تم تكرار {count} صفحة",
+    "blank_page_added": "تمت إضافة صفحة {format} فارغة • Ctrl+Z للتراجع",
+    "pages_rotated": "تم تدوير {count} صفحة إلى {direction}",
+    "reorder_failed": "فشلت إعادة الترتيب",
+    "page_order_updated": "تم تحديث ترتيب الصفحات • Ctrl+Z للتراجع",
+    "split_in_progress": "جارٍ التقسيم إلى {count} ملف PDF…",
+    "split_error_title": "تعذر التقسيم",
+    "split_unexpected": "نتيجة تقسيم غير متوقعة",
+    "split_created": "تم إنشاء {count} ملف PDF في {destination}",
+    "export_in_progress": "جارٍ تصدير PDF…",
+    "export_error_title": "تعذر التصدير",
+    "export_unexpected": "نتيجة تصدير غير متوقعة",
+    "export_done": "تم تصدير PDF إلى {destination}",
+}
+
+
+# Workspace-specific labels are kept together to make it easy to audit every
+# translation key referenced by the thumbnail workspace.
+_FR.update(
+    {
+        "active_pages_count": "{count} page(s) active(s)",
+        "active_pages_count_one": "1 page active",
+        "active_pages_count_other": "{count} pages actives",
+        "active_tool": "Outil actif : {tool}",
+        "add_pdfs_tooltip": "Ajouter des documents PDF (Ctrl+O)",
+        "all_pages_removed": "Toutes les pages ont été retirées",
+        "blank_a5_after_selection": "A5 portrait · après la sélection",
+        "blank_a5_at_end": "A5 portrait · à la fin du document",
+        "blank_after_page": "A4 portrait · après Page {page}",
+        "blank_after_selection": "A4 portrait · après la sélection",
+        "blank_at_end": "A4 portrait · à la fin du document",
+        "blank_landscape_after_selection": "A4 paysage · après la sélection",
+        "blank_landscape_at_end": "A4 paysage · à la fin du document",
+        "blank_page_dimensions": "Page blanche — {width} × {height} points",
+        "clear_search_to_reorder": (
+            "Effacez la recherche pour déplacer de nouveau les pages."
+        ),
+        "clear_search_to_reorder_short": (
+            "Effacez la recherche pour réorganiser les pages."
+        ),
+        "clear_selection": "Effacer la sélection (Échap)",
+        "close_all_files_tooltip": "Fermer tous les fichiers et créer un workspace vide",
+        "coming_soon_tooltip": "Disponible prochainement — {description}",
+        "current_position": "Position actuelle : {position} sur {total}",
+        "current_position_short": "Position actuelle : {position}",
+        "current_positions": "Positions actuelles : {positions}",
+        "delete_pages_count": "Supprimer {count} pages",
+        "deleted_pages_count": "{count} page(s) supprimée(s)",
+        "deleted_pages_count_one": "1 supprimée",
+        "deleted_pages_count_other": "{count} supprimées",
+        "duplicate_pages_count": "Dupliquer {count} pages",
+        "empty_mode_detail": (
+            "{title}.\nAjoutez un PDF pour afficher ses vignettes ici."
+        ),
+        "export_tooltip": "Exporter le PDF (Ctrl+S)",
+        "home_tooltip": "Fermer les fichiers ouverts et revenir à l’accueil",
+        "invalid_reference": "référence invalide",
+        "invalid_source_reference": "Référence de page source invalide",
+        "invalid_thumbnail": "Image miniature invalide",
+        "language_tooltip": "Changer la langue de l’interface",
+        "layout_after_selected": (
+            "La nouvelle page sera ajoutée après {count} page(s) sélectionnée(s)."
+        ),
+        "layout_after_selected_one": (
+            "La nouvelle page sera ajoutée après 1 page sélectionnée."
+        ),
+        "layout_after_selected_other": (
+            "La nouvelle page sera ajoutée après {count} pages sélectionnées."
+        ),
+        "layout_no_selection": (
+            "Sans sélection, la nouvelle page sera ajoutée à la fin."
+        ),
+        "loading": "Chargement…",
+        "merge_and_export": "Fusionner et exporter",
+        "merge_and_export_tooltip": (
+            "Fusionner les documents puis choisir le PDF de destination"
+        ),
+        "merge_order_output": "ORDRE ET SORTIE",
+        "merge_output_hint": (
+            "Quand deux documents sont prêts, utilisez « Fusionner et exporter » "
+            "dans la barre supérieure. Les sources ne sont jamais remplacées."
+        ),
+        "modified_pages_count": "{count} page(s) modifiée(s) / ajoutée(s)",
+        "modified_pages_count_one": "1 modifiée / ajoutée",
+        "modified_pages_count_other": "{count} modifiées / ajoutées",
+        "moved_pages_count": "{count} page(s) déplacée(s)",
+        "moved_pages_count_one": "1 déplacée",
+        "moved_pages_count_other": "{count} déplacées",
+        "number_list_last": "{values} et {last}",
+        "number_list_others": "{values} + {count} autres",
+        "open_pdfs_tooltip": "Choisir un ou plusieurs fichiers PDF",
+        "original_file_unchanged": "Le fichier original ne sera jamais supprimé.",
+        "page_change_added": "Ajoutée",
+        "page_change_deleted": "Supprimée",
+        "page_change_modified": "modifiée",
+        "page_change_moved": "déplacée",
+        "page_number": "Page {number}",
+        "page_position_short": "pos. {position}",
+        "page_state": "État : {state}",
+        "pages_count": "{count} page(s)",
+        "pages_count_one": "1 page",
+        "pages_count_other": "{count} pages",
+        "pdf_number": "PDF {number}",
+        "position": "position",
+        "preview_unavailable": "Aperçu indisponible",
+        "preview_generation_failed": "Impossible de générer cet aperçu : {error}",
+        "previews_in_progress": "{count} aperçu(s) en cours",
+        "previews_in_progress_one": "1 aperçu en cours",
+        "previews_in_progress_other": "{count} aperçus en cours",
+        "redo_tooltip": "Rétablir (Ctrl+Maj+Z)",
+        "relative_order_drag_active": "Ordre conservé · glisser-déposer actif",
+        "reorder_paused": "Réorganisation suspendue",
+        "restore_or_add_pdf": (
+            "Utilisez Annuler pour les restaurer, ou ajoutez un autre document PDF."
+        ),
+        "restore_page": "Restaurer la page",
+        "restore_pages_count": "Restaurer {count} pages",
+        "search_results": "{visible} résultat(s) sur {total} pages",
+        "select_pages_to_move": "Sélectionnez des pages à déplacer.",
+        "select_thumbnails_hint": (
+            "Sélectionnez une ou plusieurs miniatures pour activer les actions."
+        ),
+        "selected_pages_count_one": "1 page sélectionnée",
+        "selected_pages_count_other": "{count} pages sélectionnées",
+        "selection_deleted_suffix": " · {count} page(s) supprimée(s)",
+        "selection_deleted_suffix_one": " · 1 supprimée",
+        "selection_deleted_suffix_other": " · {count} supprimées",
+        "selection_multiple_detail": "Pages {pages} · ordre relatif conservé",
+        "selection_single_detail": "Page {page} · position {position} sur {total}",
+        "source_page": "page source",
+        "source_page_detail": "{document} — page source {page}",
+        "split_active_pages_one": "1 page active",
+        "split_active_pages_other": "{count} pages actives",
+        "split_export_tooltip": "Choisir le dossier qui recevra les PDF divisés",
+        "split_ignored_deleted_one": "1 page supprimée sera ignorée.",
+        "split_ignored_deleted_other": "{count} pages supprimées seront ignorées.",
+        "split_into_count": "Diviser en {count} PDF",
+        "split_page_excluded": (
+            "Division : page active {page} non incluse dans la sortie"
+        ),
+        "split_page_outputs": "Division : page active {page} → {outputs}",
+        "split_preview_ready_one": "Aperçu prêt • 1 fichier PDF sera créé.",
+        "split_preview_ready_other": (
+            "Aperçu prêt • {count} fichiers PDF seront créés."
+        ),
+        "stable_index": "Indice stable : Page {number}",
+        "stable_indices_drag_active": "Indices fixes · glisser-déposer actif",
+        "tool_accessible": "Outil {tool}",
+        "undo_tooltip": "Annuler (Ctrl+Z)",
+    }
+)
+
+_EN.update(
+    {
+        "active_pages_count": "{count} active page(s)",
+        "active_pages_count_one": "1 active page",
+        "active_pages_count_other": "{count} active pages",
+        "active_tool": "Active tool: {tool}",
+        "add_pdfs_tooltip": "Add PDF documents (Ctrl+O)",
+        "all_pages_removed": "All pages have been removed",
+        "blank_a5_after_selection": "A5 portrait · after selection",
+        "blank_a5_at_end": "A5 portrait · at end of document",
+        "blank_after_page": "A4 portrait · after Page {page}",
+        "blank_after_selection": "A4 portrait · after selection",
+        "blank_at_end": "A4 portrait · at end of document",
+        "blank_landscape_after_selection": "A4 landscape · after selection",
+        "blank_landscape_at_end": "A4 landscape · at end of document",
+        "blank_page_dimensions": "Blank page — {width} × {height} points",
+        "clear_search_to_reorder": "Clear the search to move pages again.",
+        "clear_search_to_reorder_short": "Clear the search to reorder pages.",
+        "clear_selection": "Clear selection (Esc)",
+        "close_all_files_tooltip": "Close all files and create an empty workspace",
+        "coming_soon_tooltip": "Coming soon — {description}",
+        "current_position": "Current position: {position} of {total}",
+        "current_position_short": "Current position: {position}",
+        "current_positions": "Current positions: {positions}",
+        "delete_pages_count": "Delete {count} pages",
+        "deleted_pages_count": "{count} deleted page(s)",
+        "deleted_pages_count_one": "1 deleted",
+        "deleted_pages_count_other": "{count} deleted",
+        "duplicate_pages_count": "Duplicate {count} pages",
+        "empty_mode_detail": "{title}.\nAdd a PDF to display its thumbnails here.",
+        "export_tooltip": "Export PDF (Ctrl+S)",
+        "home_tooltip": "Close open files and return home",
+        "invalid_reference": "invalid reference",
+        "invalid_source_reference": "Invalid source page reference",
+        "invalid_thumbnail": "Invalid thumbnail image",
+        "language_tooltip": "Change interface language",
+        "layout_after_selected": (
+            "The new page will be added after {count} selected page(s)."
+        ),
+        "layout_after_selected_one": (
+            "The new page will be added after 1 selected page."
+        ),
+        "layout_after_selected_other": (
+            "The new page will be added after {count} selected pages."
+        ),
+        "layout_no_selection": (
+            "With no selection, the new page will be added at the end."
+        ),
+        "loading": "Loading…",
+        "merge_and_export": "Merge and export",
+        "merge_and_export_tooltip": (
+            "Merge the documents, then choose the destination PDF"
+        ),
+        "merge_order_output": "ORDER AND OUTPUT",
+        "merge_output_hint": (
+            "When two documents are ready, use “Merge and export” in the top bar. "
+            "Source files are never replaced."
+        ),
+        "modified_pages_count": "{count} modified / added page(s)",
+        "modified_pages_count_one": "1 modified / added",
+        "modified_pages_count_other": "{count} modified / added",
+        "moved_pages_count": "{count} moved page(s)",
+        "moved_pages_count_one": "1 moved",
+        "moved_pages_count_other": "{count} moved",
+        "number_list_last": "{values} and {last}",
+        "number_list_others": "{values} + {count} others",
+        "open_pdfs_tooltip": "Choose one or more PDF files",
+        "original_file_unchanged": "The original file will never be deleted.",
+        "page_change_added": "Added",
+        "page_change_deleted": "Deleted",
+        "page_change_modified": "modified",
+        "page_change_moved": "moved",
+        "page_number": "Page {number}",
+        "page_position_short": "pos. {position}",
+        "page_state": "Status: {state}",
+        "pages_count": "{count} page(s)",
+        "pages_count_one": "1 page",
+        "pages_count_other": "{count} pages",
+        "pdf_number": "PDF {number}",
+        "position": "position",
+        "preview_unavailable": "Preview unavailable",
+        "preview_generation_failed": "Could not generate this preview: {error}",
+        "previews_in_progress": "{count} preview(s) in progress",
+        "previews_in_progress_one": "1 preview in progress",
+        "previews_in_progress_other": "{count} previews in progress",
+        "redo_tooltip": "Redo (Ctrl+Shift+Z)",
+        "relative_order_drag_active": "Order preserved · drag and drop enabled",
+        "reorder_paused": "Reordering paused",
+        "restore_or_add_pdf": "Use Undo to restore them, or add another PDF document.",
+        "restore_page": "Restore page",
+        "restore_pages_count": "Restore {count} pages",
+        "search_results": "{visible} result(s) out of {total} pages",
+        "select_pages_to_move": "Select pages to move.",
+        "select_thumbnails_hint": "Select one or more thumbnails to enable actions.",
+        "selected_pages_count_one": "1 page selected",
+        "selected_pages_count_other": "{count} pages selected",
+        "selection_deleted_suffix": " · {count} deleted page(s)",
+        "selection_deleted_suffix_one": " · 1 deleted",
+        "selection_deleted_suffix_other": " · {count} deleted",
+        "selection_multiple_detail": "Pages {pages} · relative order preserved",
+        "selection_single_detail": "Page {page} · position {position} of {total}",
+        "source_page": "source page",
+        "source_page_detail": "{document} — source page {page}",
+        "split_active_pages_one": "1 active page",
+        "split_active_pages_other": "{count} active pages",
+        "split_export_tooltip": "Choose the folder for the split PDFs",
+        "split_ignored_deleted_one": "1 deleted page will be ignored.",
+        "split_ignored_deleted_other": "{count} deleted pages will be ignored.",
+        "split_into_count": "Split into {count} PDFs",
+        "split_page_excluded": "Split: active page {page} is excluded from output",
+        "split_page_outputs": "Split: active page {page} → {outputs}",
+        "split_preview_ready_one": "Preview ready • 1 PDF file will be created.",
+        "split_preview_ready_other": (
+            "Preview ready • {count} PDF files will be created."
+        ),
+        "stable_index": "Stable index: Page {number}",
+        "stable_indices_drag_active": "Fixed indices · drag and drop enabled",
+        "tool_accessible": "{tool} tool",
+        "undo_tooltip": "Undo (Ctrl+Z)",
+    }
+)
+
+_ZH.update(
+    {
+        "active_pages_count": "{count} 个有效页面",
+        "active_pages_count_one": "1 个有效页面",
+        "active_pages_count_other": "{count} 个有效页面",
+        "active_tool": "当前工具：{tool}",
+        "add_pdfs_tooltip": "添加 PDF 文档（Ctrl+O）",
+        "all_pages_removed": "所有页面都已移除",
+        "blank_a5_after_selection": "A5 纵向 · 选择之后",
+        "blank_a5_at_end": "A5 纵向 · 文档末尾",
+        "blank_after_page": "A4 纵向 · 第 {page} 页之后",
+        "blank_after_selection": "A4 纵向 · 选择之后",
+        "blank_at_end": "A4 纵向 · 文档末尾",
+        "blank_landscape_after_selection": "A4 横向 · 选择之后",
+        "blank_landscape_at_end": "A4 横向 · 文档末尾",
+        "blank_page_dimensions": "空白页 — {width} × {height} 点",
+        "clear_search_to_reorder": "清除搜索后可再次移动页面。",
+        "clear_search_to_reorder_short": "清除搜索后可重新排序页面。",
+        "clear_selection": "清除选择（Esc）",
+        "close_all_files_tooltip": "关闭所有文件并创建空白工作区",
+        "coming_soon_tooltip": "即将推出 — {description}",
+        "current_position": "当前位置：{position}/{total}",
+        "current_position_short": "当前位置：{position}",
+        "current_positions": "当前位置：{positions}",
+        "delete_pages_count": "删除 {count} 页",
+        "deleted_pages_count": "{count} 个已删除页面",
+        "deleted_pages_count_one": "已删除 1 页",
+        "deleted_pages_count_other": "已删除 {count} 页",
+        "duplicate_pages_count": "复制 {count} 页",
+        "empty_mode_detail": "{title}。\n添加 PDF 后可在此查看缩略图。",
+        "export_tooltip": "导出 PDF（Ctrl+S）",
+        "home_tooltip": "关闭已打开的文件并返回主页",
+        "invalid_reference": "无效引用",
+        "invalid_source_reference": "源页面引用无效",
+        "invalid_thumbnail": "缩略图图像无效",
+        "language_tooltip": "更改界面语言",
+        "layout_after_selected": "新页面将添加到所选的 {count} 页之后。",
+        "layout_after_selected_one": "新页面将添加到所选页面之后。",
+        "layout_after_selected_other": "新页面将添加到所选的 {count} 页之后。",
+        "layout_no_selection": "未选择页面时，新页面将添加到末尾。",
+        "loading": "加载中…",
+        "merge_and_export": "合并并导出",
+        "merge_and_export_tooltip": "合并文档，然后选择目标 PDF",
+        "merge_order_output": "顺序与输出",
+        "merge_output_hint": (
+            "两个文档准备好后，使用顶部栏中的“合并并导出”。源文件不会被替换。"
+        ),
+        "modified_pages_count": "{count} 个已修改或添加页面",
+        "modified_pages_count_one": "已修改/添加 1 页",
+        "modified_pages_count_other": "已修改/添加 {count} 页",
+        "moved_pages_count": "{count} 个已移动页面",
+        "moved_pages_count_one": "已移动 1 页",
+        "moved_pages_count_other": "已移动 {count} 页",
+        "number_list_last": "{values} 和 {last}",
+        "number_list_others": "{values} + 其他 {count} 个",
+        "open_pdfs_tooltip": "选择一个或多个 PDF 文件",
+        "original_file_unchanged": "原始文件绝不会被删除。",
+        "page_change_added": "已添加",
+        "page_change_deleted": "已删除",
+        "page_change_modified": "已修改",
+        "page_change_moved": "已移动",
+        "page_number": "第 {number} 页",
+        "page_position_short": "位置 {position}",
+        "page_state": "状态：{state}",
+        "pages_count": "{count} 页",
+        "pages_count_one": "1 页",
+        "pages_count_other": "{count} 页",
+        "pdf_number": "PDF {number}",
+        "position": "位置",
+        "preview_unavailable": "预览不可用",
+        "preview_generation_failed": "无法生成此预览：{error}",
+        "previews_in_progress": "正在生成 {count} 个预览",
+        "previews_in_progress_one": "正在生成 1 个预览",
+        "previews_in_progress_other": "正在生成 {count} 个预览",
+        "redo_tooltip": "重做（Ctrl+Shift+Z）",
+        "relative_order_drag_active": "保持相对顺序 · 可拖放",
+        "reorder_paused": "重新排序已暂停",
+        "restore_or_add_pdf": "使用“撤销”恢复页面，或添加另一个 PDF 文档。",
+        "restore_page": "恢复页面",
+        "restore_pages_count": "恢复 {count} 页",
+        "search_results": "共 {total} 页，显示 {visible} 个结果",
+        "select_pages_to_move": "选择要移动的页面。",
+        "select_thumbnails_hint": "选择一个或多个缩略图以启用操作。",
+        "selected_pages_count_one": "已选择 1 页",
+        "selected_pages_count_other": "已选择 {count} 页",
+        "selection_deleted_suffix": " · {count} 个已删除页面",
+        "selection_deleted_suffix_one": " · 已删除 1 页",
+        "selection_deleted_suffix_other": " · 已删除 {count} 页",
+        "selection_multiple_detail": "页面 {pages} · 保持相对顺序",
+        "selection_single_detail": "第 {page} 页 · 位置 {position}/{total}",
+        "source_page": "源页面",
+        "source_page_detail": "{document} — 源页面 {page}",
+        "split_active_pages_one": "1 个有效页面",
+        "split_active_pages_other": "{count} 个有效页面",
+        "split_export_tooltip": "选择用于保存拆分 PDF 的文件夹",
+        "split_ignored_deleted_one": "将忽略 1 个已删除页面。",
+        "split_ignored_deleted_other": "将忽略 {count} 个已删除页面。",
+        "split_into_count": "拆分为 {count} 个 PDF",
+        "split_page_excluded": "拆分：有效页面 {page} 不包含在输出中",
+        "split_page_outputs": "拆分：有效页面 {page} → {outputs}",
+        "split_preview_ready_one": "预览就绪 • 将创建 1 个 PDF 文件。",
+        "split_preview_ready_other": "预览就绪 • 将创建 {count} 个 PDF 文件。",
+        "stable_index": "固定索引：第 {number} 页",
+        "stable_indices_drag_active": "固定索引 · 可拖放",
+        "tool_accessible": "{tool}工具",
+        "undo_tooltip": "撤销（Ctrl+Z）",
+    }
+)
+
+_AR.update(
+    {
+        "active_pages_count": "{count} صفحة نشطة",
+        "active_pages_count_one": "صفحة نشطة واحدة",
+        "active_pages_count_other": "{count} صفحات نشطة",
+        "active_tool": "الأداة النشطة: {tool}",
+        "add_pdfs_tooltip": "إضافة مستندات PDF ‏(Ctrl+O)",
+        "all_pages_removed": "تمت إزالة كل الصفحات",
+        "blank_a5_after_selection": "A5 عمودي · بعد التحديد",
+        "blank_a5_at_end": "A5 عمودي · في نهاية المستند",
+        "blank_after_page": "A4 عمودي · بعد الصفحة {page}",
+        "blank_after_selection": "A4 عمودي · بعد التحديد",
+        "blank_at_end": "A4 عمودي · في نهاية المستند",
+        "blank_landscape_after_selection": "A4 أفقي · بعد التحديد",
+        "blank_landscape_at_end": "A4 أفقي · في نهاية المستند",
+        "blank_page_dimensions": "صفحة فارغة — {width} × {height} نقطة",
+        "clear_search_to_reorder": "امسح البحث لنقل الصفحات مجدداً.",
+        "clear_search_to_reorder_short": "امسح البحث لإعادة ترتيب الصفحات.",
+        "clear_selection": "مسح التحديد (Esc)",
+        "close_all_files_tooltip": "إغلاق كل الملفات وإنشاء مساحة عمل فارغة",
+        "coming_soon_tooltip": "متاح قريباً — {description}",
+        "current_position": "الموضع الحالي: {position} من {total}",
+        "current_position_short": "الموضع الحالي: {position}",
+        "current_positions": "المواضع الحالية: {positions}",
+        "delete_pages_count": "حذف {count} صفحات",
+        "deleted_pages_count": "{count} صفحة محذوفة",
+        "deleted_pages_count_one": "صفحة محذوفة واحدة",
+        "deleted_pages_count_other": "{count} صفحات محذوفة",
+        "duplicate_pages_count": "تكرار {count} صفحات",
+        "empty_mode_detail": "{title}.\nأضف ملف PDF لعرض صوره المصغرة هنا.",
+        "export_tooltip": "تصدير PDF ‏(Ctrl+S)",
+        "home_tooltip": "إغلاق الملفات المفتوحة والعودة إلى الرئيسية",
+        "invalid_reference": "مرجع غير صالح",
+        "invalid_source_reference": "مرجع صفحة المصدر غير صالح",
+        "invalid_thumbnail": "صورة مصغرة غير صالحة",
+        "language_tooltip": "تغيير لغة الواجهة",
+        "layout_after_selected": (
+            "ستُضاف الصفحة الجديدة بعد {count} صفحة محددة."
+        ),
+        "layout_after_selected_one": (
+            "ستُضاف الصفحة الجديدة بعد الصفحة المحددة."
+        ),
+        "layout_after_selected_other": (
+            "ستُضاف الصفحة الجديدة بعد {count} صفحات محددة."
+        ),
+        "layout_no_selection": (
+            "من دون تحديد، ستُضاف الصفحة الجديدة في النهاية."
+        ),
+        "loading": "جارٍ التحميل…",
+        "merge_and_export": "دمج وتصدير",
+        "merge_and_export_tooltip": "دمج المستندات ثم اختيار ملف PDF الوجهة",
+        "merge_order_output": "الترتيب والإخراج",
+        "merge_output_hint": (
+            "عندما يجهز مستندان، استخدم «دمج وتصدير» في الشريط العلوي. "
+            "لا يتم استبدال الملفات المصدر."
+        ),
+        "modified_pages_count": "{count} صفحة معدّلة / مضافة",
+        "modified_pages_count_one": "صفحة معدّلة / مضافة واحدة",
+        "modified_pages_count_other": "{count} صفحات معدّلة / مضافة",
+        "moved_pages_count": "{count} صفحة منقولة",
+        "moved_pages_count_one": "صفحة منقولة واحدة",
+        "moved_pages_count_other": "{count} صفحات منقولة",
+        "number_list_last": "{values} و{last}",
+        "number_list_others": "{values} + {count} أخرى",
+        "open_pdfs_tooltip": "اختيار ملف PDF واحد أو أكثر",
+        "original_file_unchanged": "لن يتم حذف الملف الأصلي أبداً.",
+        "page_change_added": "مضافة",
+        "page_change_deleted": "محذوفة",
+        "page_change_modified": "معدّلة",
+        "page_change_moved": "منقولة",
+        "page_number": "الصفحة {number}",
+        "page_position_short": "الموضع {position}",
+        "page_state": "الحالة: {state}",
+        "pages_count": "{count} صفحة",
+        "pages_count_one": "صفحة واحدة",
+        "pages_count_other": "{count} صفحات",
+        "pdf_number": "PDF {number}",
+        "position": "الموضع",
+        "preview_unavailable": "المعاينة غير متاحة",
+        "preview_generation_failed": "تعذر إنشاء هذه المعاينة: {error}",
+        "previews_in_progress": "{count} معاينة قيد الإنشاء",
+        "previews_in_progress_one": "معاينة واحدة قيد الإنشاء",
+        "previews_in_progress_other": "{count} معاينات قيد الإنشاء",
+        "redo_tooltip": "إعادة (Ctrl+Shift+Z)",
+        "relative_order_drag_active": "الترتيب محفوظ · السحب والإفلات مفعّل",
+        "reorder_paused": "تم إيقاف إعادة الترتيب مؤقتاً",
+        "restore_or_add_pdf": (
+            "استخدم «تراجع» لاستعادة الصفحات، أو أضف مستند PDF آخر."
+        ),
+        "restore_page": "استعادة الصفحة",
+        "restore_pages_count": "استعادة {count} صفحات",
+        "search_results": "{visible} نتيجة من أصل {total} صفحة",
+        "select_pages_to_move": "حدد الصفحات المراد نقلها.",
+        "select_thumbnails_hint": "حدد صورة مصغرة واحدة أو أكثر لتفعيل الإجراءات.",
+        "selected_pages_count_one": "تم تحديد صفحة واحدة",
+        "selected_pages_count_other": "تم تحديد {count} صفحات",
+        "selection_deleted_suffix": " · {count} صفحة محذوفة",
+        "selection_deleted_suffix_one": " · صفحة محذوفة واحدة",
+        "selection_deleted_suffix_other": " · {count} صفحات محذوفة",
+        "selection_multiple_detail": "الصفحات {pages} · الترتيب النسبي محفوظ",
+        "selection_single_detail": (
+            "الصفحة {page} · الموضع {position} من {total}"
+        ),
+        "source_page": "صفحة المصدر",
+        "source_page_detail": "{document} — صفحة المصدر {page}",
+        "split_active_pages_one": "صفحة نشطة واحدة",
+        "split_active_pages_other": "{count} صفحات نشطة",
+        "split_export_tooltip": "اختيار المجلد الذي سيستقبل ملفات PDF المقسمة",
+        "split_ignored_deleted_one": "سيتم تجاهل صفحة محذوفة واحدة.",
+        "split_ignored_deleted_other": "سيتم تجاهل {count} صفحات محذوفة.",
+        "split_into_count": "تقسيم إلى {count} ملف PDF",
+        "split_page_excluded": (
+            "التقسيم: الصفحة النشطة {page} غير مضمنة في الإخراج"
+        ),
+        "split_page_outputs": "التقسيم: الصفحة النشطة {page} ← {outputs}",
+        "split_preview_ready_one": "المعاينة جاهزة • سيتم إنشاء ملف PDF واحد.",
+        "split_preview_ready_other": (
+            "المعاينة جاهزة • سيتم إنشاء {count} ملفات PDF."
+        ),
+        "stable_index": "الفهرس الثابت: الصفحة {number}",
+        "stable_indices_drag_active": "فهارس ثابتة · السحب والإفلات مفعّل",
+        "tool_accessible": "أداة {tool}",
+        "undo_tooltip": "تراجع (Ctrl+Z)",
+    }
+)
+
+
+TRANSLATIONS: dict[str, dict[str, str]] = {
+    "fr": _FR,
+    "en": _EN,
+    "zh": _ZH,
+    "ar": _AR,
+}
+
+
+def is_rtl(language: str) -> bool:
+    """Return whether *language* should use a right-to-left layout."""
+
+    return LANGUAGES.get(language, LANGUAGES[DEFAULT_LANGUAGE])["rtl"]
+
+
+def language_name(language: str) -> str:
+    """Return a language's native name, falling back to the default language."""
+
+    return LANGUAGES.get(language, LANGUAGES[DEFAULT_LANGUAGE])["name"]
+
+
+def translate(language: str, key: str, **values: object) -> str:
+    """Translate *key* and interpolate any named values.
+
+    Unknown language codes fall back to French. A missing locale entry also
+    falls back to French, while an entirely unknown key remains visible to
+    developers instead of producing an empty label. When ``count`` is given
+    and ``<key>_one`` / ``<key>_other`` entries exist, the matching natural
+    singular or plural form is selected automatically.
+    """
+
+    catalogue = TRANSLATIONS.get(language, TRANSLATIONS[DEFAULT_LANGUAGE])
+    selected_key = key
+    if "count" in values:
+        plural_key = f"{key}_{'one' if values['count'] == 1 else 'other'}"
+        if plural_key in TRANSLATIONS[DEFAULT_LANGUAGE]:
+            selected_key = plural_key
+    text = catalogue.get(
+        selected_key,
+        TRANSLATIONS[DEFAULT_LANGUAGE].get(selected_key, selected_key),
+    )
+    return text.format(**values) if values else text
