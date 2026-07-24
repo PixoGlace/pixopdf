@@ -252,6 +252,45 @@ def test_organize_document_remove_action_removes_source_pages_and_undo_restores(
     close_clean(window)
 
 
+def test_split_mode_exports_batches_to_selected_directory(
+    tmp_path: Path,
+    qapp: QApplication,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    QSettings.setDefaultFormat(QSettings.Format.IniFormat)
+    QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, str(tmp_path))
+    backend = WindowBackend()
+    window = MainWindow(ProjectService(backend))
+    for index in range(5):
+        window.insert_blank_page(index, 595.28, 841.89)
+    window.delete_pages([1])
+    destination = tmp_path / "split-output"
+    monkeypatch.setattr(
+        QFileDialog,
+        "getExistingDirectory",
+        lambda *_args, **_kwargs: str(destination),
+    )
+
+    window.activate_mode(WorkspaceMode.SPLIT)
+    window.workspace.split_batch_radio.setChecked(True)
+    window.workspace.split_batch_size.setValue(2)
+    window.workspace.split_execute_button.click()
+    wait_for_operation(window)
+    qapp.processEvents()
+
+    assert window.active_mode is WorkspaceMode.SPLIT
+    assert [len(project.pages) for project in backend.exported_projects] == [2, 2]
+    assert all(
+        not page.is_deleted for project in backend.exported_projects for page in project.pages
+    )
+    assert sorted(path.name for path in destination.glob("*.pdf")) == [
+        "pages-pixopdf-partie-01.pdf",
+        "pages-pixopdf-partie-02.pdf",
+    ]
+    assert "2 PDF créé(s)" in window.workspace.status.text()
+    close_clean(window)
+
+
 def test_selectable_mode_persists_and_is_kept_after_import(
     tmp_path: Path,
     qapp: QApplication,

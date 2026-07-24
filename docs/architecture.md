@@ -21,3 +21,8 @@ LRU cache is capped at 200 entries.
 Export resolves references at the last moment, opens each source once, closes all
 PDF handles, then atomically replaces the destination with a unique temporary file.
 Every source document remains untouched.
+
+Split planning converts each chosen strategy into zero-based groups over active
+pages. Every group is exported to a temporary directory first; completed outputs
+are moved into the selected destination only after every PDF has been generated.
+Existing output files are never overwritten.

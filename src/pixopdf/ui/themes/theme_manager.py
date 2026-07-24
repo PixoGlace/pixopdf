@@ -130,7 +130,7 @@ QPushButton, QToolButton {
 }
 QPushButton:hover, QToolButton:hover { background: %(hover)s; border-color: #14B8A6; }
 QPushButton:pressed, QToolButton:pressed { background: %(pressed)s; }
-QPushButton:focus, QToolButton:focus, QLineEdit:focus, QListWidget:focus {
+QPushButton:focus, QToolButton:focus, QLineEdit:focus, QSpinBox:focus, QListWidget:focus {
     border: 2px solid #F59E0B;
 }
 QPushButton:disabled, QToolButton:disabled {
@@ -243,6 +243,18 @@ QToolButton#workspaceModeButton {
 QLineEdit {
     background: %(surface_alt)s; border: 1px solid %(border)s; border-radius: 7px;
     padding: 8px 11px; selection-background-color: #14B8A6;
+}
+QSpinBox {
+    background: %(surface)s; border: 1px solid %(border)s; border-radius: 7px;
+    padding: 6px 8px; min-width: 52px;
+}
+QRadioButton { spacing: 8px; padding: 3px 0; }
+QRadioButton::indicator {
+    width: 15px; height: 15px; border: 1px solid %(border)s; border-radius: 8px;
+    background: %(surface)s;
+}
+QRadioButton::indicator:checked {
+    background: #14B8A6; border: 4px solid %(surface)s;
 }
 QListWidget {
     background: transparent; border: 0; outline: 0; padding: 6px;

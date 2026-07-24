@@ -185,7 +185,6 @@ def test_import_preserves_central_shell_topbar_mode_and_left_panel(
 @pytest.mark.parametrize(
     "saved_mode",
     [
-        WorkspaceMode.SPLIT.value,
         WorkspaceMode.CONVERT.value,
         WorkspaceMode.PROTECT.value,
         WorkspaceMode.SIGN.value,
@@ -205,6 +204,20 @@ def test_unavailable_or_unknown_saved_mode_falls_back_to_organize(
     assert window.workspace.mode_buttons[WorkspaceMode.ORGANIZE].isChecked()
     assert settings.value("workflow/mode") == WorkspaceMode.ORGANIZE.value
 
+    close_clean(window)
+
+
+def test_saved_split_mode_is_restored(
+    tmp_path: Path,
+) -> None:
+    settings = configure_settings(tmp_path, workflow__mode=WorkspaceMode.SPLIT.value)
+
+    window = MainWindow(ProjectService(UnifiedWindowBackend()))
+
+    assert window.active_mode is WorkspaceMode.SPLIT
+    assert window.workspace.current_mode is WorkspaceMode.SPLIT
+    assert window.workspace.mode_buttons[WorkspaceMode.SPLIT].isChecked()
+    assert settings.value("workflow/mode") == WorkspaceMode.SPLIT.value
     close_clean(window)
 
 

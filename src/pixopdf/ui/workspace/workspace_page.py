@@ -41,9 +41,11 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMenu,
     QPushButton,
+    QRadioButton,
     QScrollArea,
     QSizePolicy,
     QSlider,
+    QSpinBox,
     QSplitter,
     QStackedWidget,
     QStyledItemDelegate,
@@ -57,6 +59,7 @@ from pixopdf.assets import asset_path
 from pixopdf.domain.page import PageChange, PageReference
 from pixopdf.domain.project import PdfProject
 from pixopdf.pdf.renderer import PdfRenderer
+from pixopdf.services.split_service import SplitStrategy, build_split_groups
 from pixopdf.ui.themes.theme_manager import Theme
 from pixopdf.ui.tool_modes import (
     MODE_SPECS,
@@ -341,6 +344,7 @@ class WorkspacePage(QWidget):
     delete_requested = Signal(list)
     restore_requested = Signal(list)
     remove_document_requested = Signal(str)
+    split_requested = Signal(str, int, str)
     duplicate_requested = Signal(list)
     rotate_requested = Signal(list, int)
     reorder_requested = Signal(list)
@@ -678,6 +682,8 @@ class WorkspacePage(QWidget):
                 page = self._create_organize_options()
             elif mode is WorkspaceMode.MERGE:
                 page = self._create_merge_options()
+            elif mode is WorkspaceMode.SPLIT:
+                page = self._create_split_options()
             elif mode is WorkspaceMode.LAYOUT:
                 page = self._create_layout_options()
             else:
@@ -1076,6 +1082,97 @@ class WorkspacePage(QWidget):
         page_layout.addWidget(self._options_scroll(body), 1)
         return page
 
+    def _create_split_options(self) -> QWidget:
+        page = QWidget()
+        page.setObjectName("splitOptions")
+        page_layout = QVBoxLayout(page)
+        page_layout.setContentsMargins(0, 0, 0, 0)
+        body, body_layout = self._options_body()
+
+        self.split_summary_label = QLabel("Ajoutez un PDF pour préparer la division.")
+        self.split_summary_label.setObjectName("selectionSummary")
+        self.split_summary_label.setWordWrap(True)
+        body_layout.addWidget(self.split_summary_label)
+
+        strategy_card, strategy_layout = self._organize_card(
+            "Méthode de division",
+            "Les numéros correspondent aux positions actuelles des pages actives.",
+        )
+        self.split_strategy_group = QButtonGroup(page)
+        self.split_each_radio = QRadioButton("Un PDF par page")
+        self.split_batch_radio = QRadioButton("Par lots de pages")
+        self.split_ranges_radio = QRadioButton("Plages personnalisées")
+        for radio in (
+            self.split_each_radio,
+            self.split_batch_radio,
+            self.split_ranges_radio,
+        ):
+            self.split_strategy_group.addButton(radio)
+            strategy_layout.addWidget(radio)
+            radio.toggled.connect(self._update_split_controls)
+
+        batch_row = QHBoxLayout()
+        batch_row.setContentsMargins(22, 0, 0, 0)
+        batch_label = QLabel("Pages par fichier")
+        batch_label.setObjectName("organizeActionStatus")
+        batch_row.addWidget(batch_label)
+        batch_row.addStretch()
+        self.split_batch_size = QSpinBox()
+        self.split_batch_size.setRange(1, 9999)
+        self.split_batch_size.setValue(5)
+        self.split_batch_size.setAccessibleName("Nombre de pages par fichier")
+        self.split_batch_size.valueChanged.connect(self._update_split_controls)
+        batch_row.addWidget(self.split_batch_size)
+        strategy_layout.addLayout(batch_row)
+
+        self.split_ranges_input = QLineEdit()
+        self.split_ranges_input.setPlaceholderText("Ex. 1-3; 4-6; 7")
+        self.split_ranges_input.setAccessibleName("Plages de pages à diviser")
+        self.split_ranges_input.setToolTip(
+            "Séparez les fichiers par « ; » et les pages d’un fichier par « , »"
+        )
+        self.split_ranges_input.textChanged.connect(self._update_split_controls)
+        strategy_layout.addWidget(self.split_ranges_input)
+        body_layout.addWidget(strategy_card)
+
+        split_hint = QLabel(
+            "Exemple : « 1-3; 4-6; 7 » crée trois PDF. Les pages marquées supprimées sont ignorées."
+        )
+        split_hint.setObjectName("contextHint")
+        split_hint.setWordWrap(True)
+        body_layout.addWidget(split_hint)
+
+        self.split_validation_label = QLabel()
+        self.split_validation_label.setObjectName("muted")
+        self.split_validation_label.setWordWrap(True)
+        body_layout.addWidget(self.split_validation_label)
+
+        self.split_execute_button = self._button(
+            "Choisir un dossier et diviser",
+            self._request_split,
+            "primaryButton",
+            "Choisir le dossier qui recevra les nouveaux fichiers PDF",
+        )
+        self.split_execute_button.setAccessibleName("Diviser le document")
+        body_layout.addWidget(self.split_execute_button)
+
+        split_add_button = self._button(
+            "＋  Ajouter des PDF",
+            self.add_requested.emit,
+            "organizeActionButton",
+            "Ajouter des pages au document à diviser",
+        )
+        body_layout.addWidget(split_add_button)
+        body_layout.addStretch()
+        self.mode_specific_actions[WorkspaceMode.SPLIT] = [
+            self.split_execute_button,
+            split_add_button,
+        ]
+        page_layout.addWidget(self._options_scroll(body), 1)
+        self.split_each_radio.setChecked(True)
+        self._update_split_controls()
+        return page
+
     def _create_layout_options(self) -> QWidget:
         page = QWidget()
         page.setObjectName("layoutOptions")
@@ -1175,6 +1272,58 @@ class WorkspacePage(QWidget):
         label = QLabel(text)
         label.setObjectName("optionHeading")
         return label
+
+    def _selected_split_strategy(self) -> SplitStrategy:
+        if self.split_batch_radio.isChecked():
+            return SplitStrategy.BATCH
+        if self.split_ranges_radio.isChecked():
+            return SplitStrategy.RANGES
+        return SplitStrategy.EACH_PAGE
+
+    def _update_split_controls(self) -> None:
+        strategy = self._selected_split_strategy()
+        self.split_batch_size.setEnabled(strategy is SplitStrategy.BATCH)
+        self.split_ranges_input.setEnabled(strategy is SplitStrategy.RANGES)
+        if self._active_page_count < 1:
+            self.split_summary_label.setText("Ajoutez un PDF pour préparer la division.")
+            self.split_validation_label.setText("Aucune page active à diviser.")
+            self.split_validation_label.setProperty("feedback", "error")
+            self.split_execute_button.setEnabled(False)
+        else:
+            self.split_summary_label.setText(
+                f"{self._active_page_count} page"
+                f"{'s' if self._active_page_count > 1 else ''} active"
+                f"{'s' if self._active_page_count > 1 else ''}"
+            )
+            try:
+                groups = build_split_groups(
+                    self._active_page_count,
+                    strategy,
+                    batch_size=self.split_batch_size.value(),
+                    ranges=self.split_ranges_input.text(),
+                )
+            except ValueError as exc:
+                self.split_validation_label.setText(str(exc))
+                self.split_validation_label.setProperty("feedback", "error")
+                self.split_execute_button.setEnabled(False)
+            else:
+                result_wording = "seront créés" if len(groups) > 1 else "sera créé"
+                self.split_validation_label.setText(
+                    f"{len(groups)} fichier{'s' if len(groups) > 1 else ''} PDF {result_wording}."
+                )
+                self.split_validation_label.setProperty("feedback", "success")
+                self.split_execute_button.setEnabled(True)
+        self.split_validation_label.style().unpolish(self.split_validation_label)
+        self.split_validation_label.style().polish(self.split_validation_label)
+
+    def _request_split(self) -> None:
+        if not self.split_execute_button.isEnabled():
+            return
+        self.split_requested.emit(
+            self._selected_split_strategy().value,
+            self.split_batch_size.value(),
+            self.split_ranges_input.text(),
+        )
 
     def _request_mode(self, mode: WorkspaceMode) -> None:
         if not MODE_SPECS[mode].is_selectable:
@@ -1992,6 +2141,7 @@ class WorkspacePage(QWidget):
         self.page_stack.setCurrentWidget(self.pages if project.pages else self.empty_state)
         self.search.setEnabled(bool(project.pages))
         self.select_all_button.setEnabled(bool(project.pages))
+        self._update_split_controls()
         self._update_export_state()
         if len(project.documents) == 0:
             self.merge_summary_label.setText("Ajoutez au moins deux documents PDF.")

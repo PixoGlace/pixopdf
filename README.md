@@ -17,10 +17,11 @@ PixoPDF is a free, cross-platform PDF toolbox by [PixoGlace](https://github.com/
 - Search pages and resize previews
 - Generate thumbnails, import and export without freezing the interface
 - Merge and atomically export to a new PDF
+- Split active pages into one PDF per page, fixed-size batches or custom ranges
 - Light and dark PixoGlace themes
 - Drop PDF files directly from the file manager
 
-Splitting, advanced layout, annotations, conversion, security, compression, OCR and batch processing are on the roadmap. Unavailable tools are explicitly marked “Bientôt”.
+Advanced layout, annotations, conversion, security, compression, OCR and batch processing are on the roadmap. Unavailable tools are explicitly marked “Bientôt”.
 
 ## Development
 

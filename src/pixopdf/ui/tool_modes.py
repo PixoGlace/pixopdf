@@ -71,10 +71,10 @@ MODE_SPECS: dict[WorkspaceMode, ModeSpec] = {
         "Diviser",
         "split",
         "Divisez un PDF avec précision",
-        "Préparez des intervalles, groupes ou extractions de pages dans un flux dédié.",
+        "Créez un PDF par page, par lots ou à partir de plages personnalisées.",
         "Pages à diviser",
-        ModeStatus.COMING_SOON,
-        ("Diviser par intervalle", "Extraire la sélection", "Un PDF par page"),
+        ModeStatus.READY,
+        ("Un PDF par page", "Lots de pages", "Plages personnalisées"),
     ),
     WorkspaceMode.LAYOUT: ModeSpec(
         WorkspaceMode.LAYOUT,

@@ -35,6 +35,7 @@ from pixopdf.domain.document import SourceDocument
 from pixopdf.domain.project import PdfProject
 from pixopdf.pdf.pdfium_renderer import PdfiumRenderer
 from pixopdf.services.project_service import ProjectService
+from pixopdf.services.split_service import SplitStrategy, build_split_groups
 
 from .themes.theme_manager import Theme, apply_theme
 from .tool_modes import MODE_SPECS, WorkspaceMode, coerce_mode
@@ -119,6 +120,7 @@ class MainWindow(QMainWindow):
         self.workspace.delete_requested.connect(self.delete_pages)
         self.workspace.restore_requested.connect(self.restore_pages)
         self.workspace.remove_document_requested.connect(self.remove_document)
+        self.workspace.split_requested.connect(self.split_document)
         self.workspace.duplicate_requested.connect(self.duplicate_pages)
         self.workspace.rotate_requested.connect(self.rotate_pages)
         self.workspace.reorder_requested.connect(self.reorder_pages)
@@ -350,6 +352,62 @@ class MainWindow(QMainWindow):
             self.workspace.show_message(str(exc), error=True)
             return
         self.workspace.show_message("Ordre des pages mis à jour • Ctrl+Z pour annuler")
+
+    def split_document(
+        self,
+        strategy_value: str,
+        batch_size: int,
+        ranges: str,
+    ) -> None:
+        if self._active_task is not None or not self.project.active_page_count:
+            return
+        try:
+            strategy = SplitStrategy(strategy_value)
+            groups = build_split_groups(
+                self.project.active_page_count,
+                strategy,
+                batch_size=batch_size,
+                ranges=ranges,
+            )
+        except ValueError as exc:
+            self.workspace.show_message(str(exc), error=True)
+            return
+        directory = QFileDialog.getExistingDirectory(
+            self,
+            "Choisir le dossier des PDF divisés",
+            str(self.settings.value("files/last_directory", "")),
+        )
+        if not directory:
+            return
+        destination = Path(directory)
+        self.settings.setValue("files/last_directory", str(destination))
+        if len(self.project.documents) == 1:
+            base_name = next(iter(self.project.documents.values())).path.stem
+        elif self.project.documents:
+            base_name = "projet-pixopdf"
+        else:
+            base_name = "pages-pixopdf"
+        snapshot = PdfProject(
+            documents=dict(self.project.documents),
+            pages=list(self.project.active_pages),
+            modified=False,
+        )
+        self.workspace.show_message(f"Division en {len(groups)} fichier(s) PDF en cours…")
+        self._start_operation(
+            lambda: self.service.split(snapshot, destination, groups, base_name),
+            self._finish_split,
+            "Division impossible",
+        )
+
+    def _finish_split(self, result: object) -> None:
+        if (
+            not isinstance(result, list)
+            or not result
+            or not all(isinstance(path, Path) for path in result)
+        ):
+            raise TypeError("Résultat de division inattendu")
+        destination = result[0].parent
+        self.workspace.show_message(f"{len(result)} PDF créé(s) dans {destination}")
 
     def export(self) -> None:
         if not self.project.active_page_count or self._active_task is not None:

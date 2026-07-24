@@ -122,6 +122,46 @@ def test_workspace_merge_and_layout_actions_emit_expected_requests(
     workspace.shutdown()
 
 
+def test_split_panel_validates_strategies_and_emits_request(
+    qapp: QApplication,
+) -> None:
+    workspace = WorkspacePage(NoRenderRenderer())
+    workspace.refresh(blank_project(5))
+    split_requests: list[tuple[str, int, str]] = []
+    workspace.split_requested.connect(
+        lambda strategy, batch_size, ranges: split_requests.append((strategy, batch_size, ranges))
+    )
+
+    workspace.set_mode(WorkspaceMode.SPLIT)
+
+    assert MODE_SPECS[WorkspaceMode.SPLIT].is_selectable
+    assert workspace.current_mode is WorkspaceMode.SPLIT
+    assert workspace.split_each_radio.isChecked()
+    assert workspace.split_execute_button.isEnabled()
+    assert "5 fichiers PDF" in workspace.split_validation_label.text()
+
+    workspace.split_batch_radio.setChecked(True)
+    workspace.split_batch_size.setValue(2)
+    qapp.processEvents()
+    assert "3 fichiers PDF" in workspace.split_validation_label.text()
+    workspace.split_execute_button.click()
+    assert split_requests == [("batch", 2, "")]
+
+    workspace.split_ranges_radio.setChecked(True)
+    workspace.split_ranges_input.setText("1-8")
+    qapp.processEvents()
+    assert not workspace.split_execute_button.isEnabled()
+    assert "dépasse" in workspace.split_validation_label.text()
+
+    workspace.split_ranges_input.setText("1-2; 3,5")
+    qapp.processEvents()
+    assert workspace.split_execute_button.isEnabled()
+    assert "2 fichiers PDF" in workspace.split_validation_label.text()
+    workspace.split_execute_button.click()
+    assert split_requests[-1] == ("ranges", 2, "1-2; 3,5")
+    workspace.shutdown()
+
+
 def test_documents_are_visible_and_removable_in_organize_and_merge(
     qapp: QApplication,
 ) -> None:
