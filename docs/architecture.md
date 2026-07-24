@@ -33,3 +33,10 @@ Colored borders are paired with numbered PDF badges and text tooltips.
 Removing one source or clearing the complete workspace is implemented as an
 undoable command. These commands only mutate the virtual project; original files
 are never deleted.
+
+The desktop shell uses one persistent three-column editor: source files on the
+left, page thumbnails in the center and the active workflow options on the right.
+Home is a separate central drop-zone state that hides both side panels. Returning
+Home creates a new `PdfProject` and `CommandStack`; importing into any empty Home
+state also resets stale history, preventing undo commands from a closed workspace
+from modifying a newly opened project.

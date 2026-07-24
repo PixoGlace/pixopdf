@@ -414,6 +414,53 @@ class PageListWidget(QListWidget):
         super().keyPressEvent(event)
 
 
+class PdfDropZone(QFrame):
+    """Dedicated Home drop target for local PDF files."""
+
+    files_dropped = Signal(list)
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.setObjectName("centralDropZone")
+        self.setAcceptDrops(True)
+        self.setProperty("dragActive", False)
+        self.setAccessibleName("Zone de dépôt des fichiers PDF")
+
+    @staticmethod
+    def _pdf_paths(event: QDragEnterEvent | QDropEvent) -> list[str]:
+        urls = event.mimeData().urls()
+        if not urls or not all(
+            url.isLocalFile() and url.toLocalFile().lower().endswith(".pdf") for url in urls
+        ):
+            return []
+        return [url.toLocalFile() for url in urls]
+
+    def _set_drag_active(self, active: bool) -> None:
+        self.setProperty("dragActive", active)
+        self.style().unpolish(self)
+        self.style().polish(self)
+
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        if self._pdf_paths(event):
+            self._set_drag_active(True)
+            event.acceptProposedAction()
+            return
+        event.ignore()
+
+    def dragLeaveEvent(self, event: QDragLeaveEvent) -> None:
+        self._set_drag_active(False)
+        event.accept()
+
+    def dropEvent(self, event: QDropEvent) -> None:
+        paths = self._pdf_paths(event)
+        self._set_drag_active(False)
+        if not paths:
+            event.ignore()
+            return
+        self.files_dropped.emit(paths)
+        event.acceptProposedAction()
+
+
 class WorkspacePage(QWidget):
     delete_requested = Signal(list)
     restore_requested = Signal(list)
@@ -426,6 +473,7 @@ class WorkspacePage(QWidget):
     blank_page_requested = Signal(int, float, float)
     export_requested = Signal()
     add_requested = Signal()
+    files_dropped = Signal(list)
     home_requested = Signal()
     undo_requested = Signal()
     redo_requested = Signal()
@@ -454,6 +502,7 @@ class WorkspacePage(QWidget):
         self._split_output_count = 0
         self._split_plan_valid = False
         self._split_groups: list[list[int]] | None = None
+        self._home_active = True
         self._message_token = 0
         self._base_status = "0 page au total     0 document     Traitement local"
         self.setObjectName("appRoot")
@@ -461,20 +510,36 @@ class WorkspacePage(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
         root.addWidget(self._create_topbar())
+        self.content_stack = QStackedWidget()
+        self.content_stack.setObjectName("contentStack")
+        self.home_view = self._create_home_view()
+        self.editor_view = QWidget()
+        self.editor_view.setObjectName("editorView")
+        editor_layout = QVBoxLayout(self.editor_view)
+        editor_layout.setContentsMargins(0, 0, 0, 0)
+        editor_layout.setSpacing(0)
         self.splitter = QSplitter()
         self.splitter.setObjectName("workspaceSplitter")
         self.splitter.setChildrenCollapsible(False)
+        self.documents_panel = self._create_workspace_documents_panel()
         self.pages_panel = self._create_pages_panel()
         self.context_panel = self._create_options_panel()
-        self.splitter.addWidget(self.context_panel)
+        self.splitter.addWidget(self.documents_panel)
         self.splitter.addWidget(self.pages_panel)
+        self.splitter.addWidget(self.context_panel)
         self.splitter.setStretchFactor(0, 0)
         self.splitter.setStretchFactor(1, 1)
-        self.splitter.setSizes([280, 970])
-        root.addWidget(self.splitter, 1)
-        root.addWidget(self._create_statusbar())
+        self.splitter.setStretchFactor(2, 0)
+        self.splitter.setSizes([230, 720, 300])
+        editor_layout.addWidget(self.splitter)
+        self.content_stack.addWidget(self.home_view)
+        self.content_stack.addWidget(self.editor_view)
+        root.addWidget(self.content_stack, 1)
+        self.statusbar = self._create_statusbar()
+        root.addWidget(self.statusbar)
         self.set_mode(self.current_mode)
         self._update_selection()
+        self.show_home()
 
     def _button(
         self,
@@ -519,6 +584,15 @@ class WorkspacePage(QWidget):
         self.workspace_brand_label.setTextFormat(Qt.TextFormat.RichText)
         brand_layout.addWidget(self.workspace_brand_label, 1)
         command_layout.addWidget(brand)
+
+        self.home_button = self._button(
+            "⌂  Accueil",
+            self.home_requested.emit,
+            "homeButton",
+            "Fermer les fichiers ouverts et revenir à l’accueil",
+        )
+        self.home_button.setAccessibleName("Accueil")
+        command_layout.addWidget(self.home_button)
 
         self.undo_button = self._button(
             "Annuler",
@@ -617,6 +691,128 @@ class WorkspacePage(QWidget):
         layout.addWidget(mode_bar)
         self._update_workspace_brand()
         return topbar
+
+    def _create_home_view(self) -> QWidget:
+        home = QWidget()
+        home.setObjectName("homeView")
+        layout = QVBoxLayout(home)
+        layout.setContentsMargins(48, 42, 48, 42)
+        layout.addStretch()
+
+        self.home_drop_zone = PdfDropZone()
+        self.home_drop_zone.setMinimumHeight(330)
+        self.home_drop_zone.setMinimumWidth(620)
+        self.home_drop_zone.setMaximumWidth(760)
+        drop_layout = QVBoxLayout(self.home_drop_zone)
+        drop_layout.setContentsMargins(42, 38, 42, 38)
+        drop_layout.setSpacing(12)
+        drop_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        icon = QLabel("▱")
+        icon.setObjectName("homeDropIcon")
+        icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        drop_layout.addWidget(icon)
+
+        title = QLabel("Bienvenue dans PixoPDF")
+        title.setObjectName("homeTitle")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        drop_layout.addWidget(title)
+
+        subtitle = QLabel(
+            "Déposez vos fichiers PDF ici pour commencer à les organiser, fusionner ou diviser."
+        )
+        subtitle.setObjectName("homeDescription")
+        subtitle.setWordWrap(True)
+        subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        drop_layout.addWidget(subtitle)
+
+        open_button = self._button(
+            "＋  Ouvrir des fichiers PDF",
+            self.add_requested.emit,
+            "primaryButton",
+            "Choisir un ou plusieurs fichiers PDF",
+        )
+        open_button.setAccessibleName("Ouvrir des fichiers PDF")
+        drop_layout.addWidget(open_button, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        drop_prompt = QLabel("ou glissez-déposez vos PDF dans cette zone")
+        drop_prompt.setObjectName("dropPrompt")
+        drop_prompt.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        drop_layout.addWidget(drop_prompt)
+
+        privacy = QLabel("Traitement 100 % local • aucun fichier envoyé en ligne")
+        privacy.setObjectName("dropPrivacy")
+        privacy.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        drop_layout.addWidget(privacy)
+
+        self.home_drop_zone.files_dropped.connect(self.files_dropped.emit)
+        layout.addWidget(
+            self.home_drop_zone,
+            alignment=Qt.AlignmentFlag.AlignHCenter,
+        )
+        layout.addStretch()
+        return home
+
+    def _create_workspace_documents_panel(self) -> QFrame:
+        panel = QFrame()
+        panel.setObjectName("documentsPanel")
+        panel.setMinimumWidth(220)
+        panel.setMaximumWidth(300)
+        panel.setAccessibleName("Fichiers ouverts")
+        layout = QVBoxLayout(panel)
+        layout.setContentsMargins(12, 14, 12, 12)
+        layout.setSpacing(10)
+
+        title = QLabel("Fichiers ouverts")
+        title.setObjectName("sectionTitle")
+        layout.addWidget(title)
+        description = QLabel("Les fichiers sources restent toujours inchangés.")
+        description.setObjectName("optionsDescription")
+        description.setWordWrap(True)
+        layout.addWidget(description)
+
+        (
+            self.workspace_documents_card,
+            self.workspace_documents,
+            self.workspace_documents_heading,
+            self.workspace_remove_document_button,
+            self.workspace_add_documents_button,
+        ) = self._create_documents_card(
+            "Liste des fichiers ouverts",
+            "Ajouter un ou plusieurs fichiers PDF au workspace",
+        )
+        self.workspace_remove_document_button.setText("Fermer ce PDF")
+        layout.addWidget(self.workspace_documents_card, 1)
+
+        self.close_all_documents_button = self._button(
+            "⌂  Fermer tous les fichiers",
+            self.home_requested.emit,
+            "dangerButton",
+            "Fermer tous les fichiers et créer un workspace vide",
+        )
+        self.close_all_documents_button.setAccessibleName(
+            "Fermer tous les fichiers et revenir à l’accueil"
+        )
+        layout.addWidget(self.close_all_documents_button)
+
+        self.documents = self.workspace_documents
+        self.documents_heading = self.workspace_documents_heading
+        self.organize_documents_card = self.workspace_documents_card
+        self.organize_documents = self.workspace_documents
+        self.organize_documents_heading = self.workspace_documents_heading
+        self.organize_remove_document_button = self.workspace_remove_document_button
+        self.organize_add_documents_button = self.workspace_add_documents_button
+        self.merge_documents_card = self.workspace_documents_card
+        self.merge_documents = self.workspace_documents
+        self.merge_documents_heading = self.workspace_documents_heading
+        self.merge_remove_document_button = self.workspace_remove_document_button
+        self.split_documents_card = self.workspace_documents_card
+        self.split_documents = self.workspace_documents
+        self.split_documents_heading = self.workspace_documents_heading
+        self.split_remove_document_button = self.workspace_remove_document_button
+        self.split_add_documents_button = self.workspace_add_documents_button
+        self.split_clear_workspace_button = self.close_all_documents_button
+        return panel
 
     def _create_empty_state(self) -> QWidget:
         empty = QWidget()
@@ -849,7 +1045,10 @@ class WorkspacePage(QWidget):
         documents.setAccessibleName(accessible_name)
         documents.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         documents.setMinimumHeight(68)
-        documents.setMaximumHeight(132)
+        documents.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Expanding,
+        )
         documents.hide()
         card_layout.addWidget(documents)
 
@@ -961,18 +1160,6 @@ class WorkspacePage(QWidget):
         page_layout.addWidget(self.organize_search_banner)
 
         body, body_layout = self._options_body()
-
-        (
-            self.organize_documents_card,
-            self.organize_documents,
-            self.organize_documents_heading,
-            self.organize_remove_document_button,
-            self.organize_add_documents_button,
-        ) = self._create_documents_card(
-            "Documents du projet",
-            "Ajouter un ou plusieurs documents au projet",
-        )
-        body_layout.addWidget(self.organize_documents_card)
 
         self.move_group, move_layout = self._organize_card("Déplacer")
         self.move_position_label = QLabel("Sélectionnez des pages à déplacer.")
@@ -1142,20 +1329,7 @@ class WorkspacePage(QWidget):
         self.merge_summary_label.setWordWrap(True)
         body_layout.addWidget(self.merge_summary_label)
 
-        (
-            self.merge_documents_card,
-            self.merge_documents,
-            self.merge_documents_heading,
-            self.merge_remove_document_button,
-            merge_add,
-        ) = self._create_documents_card(
-            "Documents de la fusion",
-            "Ajouter un ou plusieurs documents à la fusion",
-        )
-        body_layout.addWidget(self.merge_documents_card)
-        # Compatibility aliases for integrations that used the original merge-only list.
-        self.documents = self.merge_documents
-        self.documents_heading = self.merge_documents_heading
+        merge_add = self.workspace_add_documents_button
 
         body_layout.addWidget(self._option_heading("ORDRE ET SORTIE"))
         self.merge_order_hint = QLabel(
@@ -1193,40 +1367,6 @@ class WorkspacePage(QWidget):
         self.split_summary_label.setObjectName("selectionSummary")
         self.split_summary_label.setWordWrap(True)
         body_layout.addWidget(self.split_summary_label)
-
-        (
-            self.split_documents_card,
-            self.split_documents,
-            self.split_documents_heading,
-            self.split_remove_document_button,
-            self.split_add_documents_button,
-        ) = self._create_documents_card(
-            "Documents à diviser",
-            "Ajouter un ou plusieurs documents à diviser",
-        )
-        self.split_clear_workspace_button = self._button(
-            "Vider le workspace",
-            self.clear_workspace_requested.emit,
-            "dangerButton",
-            "Retirer tous les documents et toutes les pages du workspace (annulable)",
-        )
-        self.split_clear_workspace_button.setAccessibleName("Vider le workspace")
-        self.split_clear_workspace_button.setAccessibleDescription(
-            "Retire tous les documents et les pages sans supprimer les fichiers originaux. "
-            "L’action peut être annulée."
-        )
-        documents_layout = self.split_documents_card.layout()
-        if documents_layout is not None:
-            documents_layout.removeWidget(self.split_remove_document_button)
-            documents_layout.removeWidget(self.split_add_documents_button)
-            document_actions = QHBoxLayout()
-            document_actions.setSpacing(6)
-            self.split_remove_document_button.setText("Retirer")
-            self.split_clear_workspace_button.setText("Tout vider")
-            document_actions.addWidget(self.split_remove_document_button)
-            document_actions.addWidget(self.split_clear_workspace_button)
-            documents_layout.addItem(document_actions)
-        self.split_add_documents_button.hide()
 
         method_heading = QLabel("Choisissez comment créer les nouveaux PDF")
         method_heading.setObjectName("optionHeading")
@@ -1294,7 +1434,6 @@ class WorkspacePage(QWidget):
         split_hint.setObjectName("organizeHint")
         split_hint.setWordWrap(True)
         body_layout.addWidget(split_hint)
-        body_layout.addWidget(self.split_documents_card)
         body_layout.addStretch()
         self.mode_specific_actions[WorkspaceMode.SPLIT] = [
             self.split_clear_workspace_button,
@@ -1509,6 +1648,35 @@ class WorkspacePage(QWidget):
             f'<span style="color:{text_color}">Pixo</span><span style="color:#14B8A6">PDF</span>'
         )
 
+    @property
+    def is_home(self) -> bool:
+        return self._home_active
+
+    def show_home(self) -> None:
+        self._home_active = True
+        self.content_stack.setCurrentWidget(self.home_view)
+        self.statusbar.hide()
+        self.home_button.setProperty("active", True)
+        self.home_button.style().unpolish(self.home_button)
+        self.home_button.style().polish(self.home_button)
+        self.export_button.setEnabled(False)
+        self._apply_split_preview(None)
+        for task in self._thumbnail_tasks.values():
+            task.cancel()
+        self._thread_pool.clear()
+        self._thumbnail_tasks.clear()
+        self._items_by_thumbnail.clear()
+        self._thumbnail_cache.clear()
+
+    def show_workspace(self) -> None:
+        self._home_active = False
+        self.content_stack.setCurrentWidget(self.editor_view)
+        self.statusbar.show()
+        self.home_button.setProperty("active", False)
+        self.home_button.style().unpolish(self.home_button)
+        self.home_button.style().polish(self.home_button)
+        self._update_export_state()
+
     def set_mode(self, mode: WorkspaceMode | str) -> None:
         selected = coerce_mode(mode)
         if not MODE_SPECS[selected].is_selectable:
@@ -1566,8 +1734,10 @@ class WorkspacePage(QWidget):
         self._update_workspace_brand()
 
     def _update_export_state(self) -> None:
-        can_export = bool(self._active_page_count) and (
-            self.current_mode is not WorkspaceMode.MERGE or self._document_count >= 2
+        can_export = (
+            not self._home_active
+            and bool(self._active_page_count)
+            and (self.current_mode is not WorkspaceMode.MERGE or self._document_count >= 2)
         )
         if self.current_mode is WorkspaceMode.SPLIT:
             can_export = can_export and self._split_plan_valid
@@ -2135,6 +2305,8 @@ class WorkspacePage(QWidget):
             return
         typed_key: ThumbnailKey = key
         self._thumbnail_tasks.pop(typed_key, None)
+        if self._home_active:
+            return
         pixmap = self._pixmap_from_data(typed_key, data)
         if pixmap is None:
             self._mark_thumbnail_failed(typed_key, "Image miniature invalide")
@@ -2154,6 +2326,8 @@ class WorkspacePage(QWidget):
             return
         typed_key: ThumbnailKey = key
         self._thumbnail_tasks.pop(typed_key, None)
+        if self._home_active:
+            return
         self._mark_thumbnail_failed(typed_key, error)
 
     def _mark_thumbnail_failed(self, key: ThumbnailKey, error: str) -> None:
@@ -2225,7 +2399,6 @@ class WorkspacePage(QWidget):
                 selected_row = row
         heading.setText(f"Documents ({len(project.documents)})")
         documents.setVisible(bool(project.documents))
-        documents.setFixedHeight(min(132, max(68, len(project.documents) * 46 + 12)))
         if selected_row >= 0:
             documents.setCurrentRow(selected_row)
         remove_button.setEnabled(documents.currentItem() is not None)
@@ -2234,25 +2407,13 @@ class WorkspacePage(QWidget):
         project.ensure_page_numbers()
         selected_ids = self.selected_page_ids()
         scroll_position = self.pages.verticalScrollBar().value()
-        for documents, heading, remove_button in (
-            (
-                self.organize_documents,
-                self.organize_documents_heading,
-                self.organize_remove_document_button,
-            ),
-            (
-                self.merge_documents,
-                self.merge_documents_heading,
-                self.merge_remove_document_button,
-            ),
-            (
-                self.split_documents,
-                self.split_documents_heading,
-                self.split_remove_document_button,
-            ),
-        ):
-            self._populate_documents_list(documents, heading, remove_button, project)
-        self.split_clear_workspace_button.setEnabled(bool(project.documents or project.pages))
+        self._populate_documents_list(
+            self.workspace_documents,
+            self.workspace_documents_heading,
+            self.workspace_remove_document_button,
+            project,
+        )
+        self.close_all_documents_button.setEnabled(bool(project.documents or project.pages))
         self._document_count = len(project.documents)
         self._items_by_thumbnail.clear()
         self.pages.clear()
@@ -2386,4 +2547,8 @@ class WorkspacePage(QWidget):
         self._restore_status()
         self._update_pages_count()
         self._update_selection()
+        if project.documents or project.pages:
+            self.show_workspace()
+        else:
+            self.show_home()
         QTimer.singleShot(0, lambda: self.pages.verticalScrollBar().setValue(scroll_position))

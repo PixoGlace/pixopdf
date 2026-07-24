@@ -96,9 +96,12 @@ class MainWindow(QMainWindow):
                 sizes = []
             if len(sizes) in (2, 3):
                 total = max(1, sum(max(0, value) for value in sizes))
+                requested_documents = sizes[0] if len(sizes) == 3 else 230
                 requested_context = sizes[2] if len(sizes) == 3 else sizes[0]
+                documents_width = min(300, max(220, requested_documents))
                 context_width = min(360, max(280, requested_context))
-                self.workspace.splitter.setSizes([context_width, max(1, total - context_width)])
+                pages_width = max(1, total - documents_width - context_width)
+                self.workspace.splitter.setSizes([documents_width, pages_width, context_width])
 
     def _saved_theme(self) -> Theme:
         value = str(self.settings.value("appearance/theme", Theme.DARK.value))
@@ -117,6 +120,8 @@ class MainWindow(QMainWindow):
 
     def _connect_signals(self) -> None:
         self.workspace.add_requested.connect(self.open_files)
+        self.workspace.files_dropped.connect(self.import_paths)
+        self.workspace.home_requested.connect(self.go_home)
         self.workspace.export_requested.connect(self.execute_primary_action)
         self.workspace.delete_requested.connect(self.delete_pages)
         self.workspace.restore_requested.connect(self.restore_pages)
@@ -140,6 +145,17 @@ class MainWindow(QMainWindow):
         self.active_mode = selected
         self.settings.setValue("workflow/mode", selected.value)
         self.workspace.set_mode(selected)
+
+    def go_home(self) -> None:
+        """Close the current project and start a clean workspace."""
+        if self._active_task is not None:
+            return
+        self.project = PdfProject()
+        self.commands = CommandStack()
+        self.commands.subscribe(self.refresh)
+        self.activate_mode(WorkspaceMode.ORGANIZE)
+        self.refresh()
+        self.workspace.show_home()
 
     def open_tool(self, tool_name: str) -> None:
         if tool_name == "Ajouter une page blanche":
@@ -226,6 +242,9 @@ class MainWindow(QMainWindow):
         ):
             raise TypeError("Résultat d’import inattendu")
         documents: list[SourceDocument] = result
+        if self.workspace.is_home and not self.project.documents and not self.project.pages:
+            self.commands = CommandStack()
+            self.commands.subscribe(self.refresh)
         for document in documents:
             self.project.add_document(document)
         self.commands.invalidate_clean()

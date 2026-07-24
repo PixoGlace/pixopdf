@@ -252,7 +252,7 @@ def test_organize_document_remove_action_removes_source_pages_and_undo_restores(
     close_clean(window)
 
 
-def test_split_workspace_can_be_cleared_and_restored(
+def test_home_closes_files_and_resets_workspace_history(
     tmp_path: Path,
     qapp: QApplication,
 ) -> None:
@@ -264,28 +264,80 @@ def test_split_workspace_can_be_cleared_and_restored(
     window.import_paths([str(source)])
     wait_for_operation(window)
     window.activate_mode(WorkspaceMode.SPLIT)
+    window.rotate_pages([0], 90)
     qapp.processEvents()
 
     assert len(window.project.documents) == 1
     assert len(window.project.pages) == 2
     assert window.workspace.split_documents.count() == 1
+    assert window.commands.can_undo
 
-    window.workspace.split_clear_workspace_button.click()
+    window.workspace.home_button.click()
     qapp.processEvents()
 
     assert window.project.documents == {}
     assert window.project.pages == []
     assert window.workspace.split_documents.count() == 0
+    assert window.workspace.is_home
+    assert window.workspace.content_stack.currentWidget() is window.workspace.home_view
+    assert window.active_mode is WorkspaceMode.ORGANIZE
     assert not window.workspace.export_button.isEnabled()
-    assert "Workspace vidé" in window.workspace.status.text()
+    assert not window.commands.can_undo
+    assert source.read_bytes() == b"fake"
 
     window.commands.undo()
     qapp.processEvents()
 
-    assert len(window.project.documents) == 1
-    assert len(window.project.pages) == 2
-    assert window.workspace.split_documents.count() == 1
-    assert window.workspace.export_button.isEnabled()
+    assert window.project.documents == {}
+    assert window.project.pages == []
+    assert window.workspace.is_home
+
+    replacement = tmp_path / "replacement.pdf"
+    replacement.write_bytes(b"replacement")
+    window.import_paths([str(replacement)])
+    wait_for_operation(window)
+    qapp.processEvents()
+
+    assert not window.workspace.is_home
+    assert [document.path for document in window.project.documents.values()] == [replacement]
+    window.commands.undo()
+    assert [document.path for document in window.project.documents.values()] == [replacement]
+    close_clean(window)
+
+
+def test_import_after_closing_last_file_starts_fresh_history(
+    tmp_path: Path,
+    qapp: QApplication,
+) -> None:
+    QSettings.setDefaultFormat(QSettings.Format.IniFormat)
+    QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, str(tmp_path))
+    window = MainWindow(ProjectService(WindowBackend()))
+    first_path = tmp_path / "first.pdf"
+    first_path.write_bytes(b"first")
+    first = SourceDocument.create(first_path, 2)
+    window.project.add_document(first)
+    window.commands.mark_clean()
+    window.refresh()
+
+    window.workspace.workspace_documents.setCurrentRow(0)
+    qapp.processEvents()
+    window.workspace.workspace_remove_document_button.click()
+    qapp.processEvents()
+
+    assert window.workspace.is_home
+    assert window.project.documents == {}
+    assert window.commands.can_undo
+
+    second_path = tmp_path / "second.pdf"
+    second_path.write_bytes(b"second")
+    window.import_paths([str(second_path)])
+    wait_for_operation(window)
+    qapp.processEvents()
+
+    assert [document.path for document in window.project.documents.values()] == [second_path]
+    assert not window.commands.can_undo
+    window.commands.undo()
+    assert [document.path for document in window.project.documents.values()] == [second_path]
     close_clean(window)
 
 

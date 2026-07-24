@@ -66,7 +66,7 @@ def close_clean(window: MainWindow) -> None:
     window.close()
 
 
-def test_main_window_uses_single_workspace_shell_with_left_context(
+def test_main_window_starts_on_home_with_drop_zone_and_hidden_side_panels(
     tmp_path: Path,
     qapp: QApplication,
 ) -> None:
@@ -83,14 +83,22 @@ def test_main_window_uses_single_workspace_shell_with_left_context(
     assert not hasattr(window, "stack")
     assert topbar is not None
     assert topbar.isVisible()
+    assert workspace.is_home
+    assert workspace.content_stack.currentWidget() is workspace.home_view
+    assert workspace.home_drop_zone.isVisibleTo(workspace)
+    assert workspace.home_button.property("active")
     assert workspace.page_stack.currentWidget() is workspace.empty_state
-    assert workspace.findChild(QFrame, "centralDropZone") is None
-    assert workspace.splitter.count() == 2
-    assert workspace.splitter.indexOf(workspace.context_panel) == 0
+    assert workspace.findChild(QFrame, "centralDropZone") is workspace.home_drop_zone
+    assert not workspace.documents_panel.isVisibleTo(workspace)
+    assert not workspace.context_panel.isVisibleTo(workspace)
+    assert workspace.splitter.count() == 3
+    assert workspace.splitter.indexOf(workspace.documents_panel) == 0
     assert workspace.splitter.indexOf(workspace.pages_panel) == 1
+    assert workspace.splitter.indexOf(workspace.context_panel) == 2
     assert workspace.context_panel.objectName() == "contextPanel"
     assert workspace.context_panel.minimumWidth() == 280
     assert workspace.options_stack.parentWidget() is workspace.context_panel
+    assert not workspace.export_button.isEnabled()
 
     close_clean(window)
 
@@ -123,7 +131,8 @@ def test_persistent_topbar_modes_disable_unavailable_workflows(
     assert requested == [WorkspaceMode.MERGE.value]
     assert workspace.current_mode is WorkspaceMode.MERGE
     assert workspace.options_stack.currentWidget() is workspace.option_panels[WorkspaceMode.MERGE]
-    assert workspace.splitter.indexOf(workspace.context_panel) == 0
+    assert workspace.splitter.indexOf(workspace.context_panel) == 2
+    assert workspace.is_home
     assert workspace.findChild(QFrame, "topbar") is topbar
     workspace.shutdown()
 
@@ -144,7 +153,7 @@ def test_programmatic_unavailable_mode_keeps_current_selectable_mode(
     workspace.shutdown()
 
 
-def test_import_preserves_central_shell_topbar_mode_and_left_panel(
+def test_import_opens_three_panel_workspace_and_preserves_selected_mode(
     tmp_path: Path,
     qapp: QApplication,
 ) -> None:
@@ -154,7 +163,8 @@ def test_import_preserves_central_shell_topbar_mode_and_left_panel(
     source.write_bytes(b"fake")
     central = window.centralWidget()
     topbar = window.workspace.findChild(QFrame, "topbar")
-    left_panel = window.workspace.context_panel
+    left_panel = window.workspace.documents_panel
+    right_panel = window.workspace.context_panel
 
     window.import_paths([str(source)])
     wait_for_operation(window)
@@ -162,7 +172,14 @@ def test_import_preserves_central_shell_topbar_mode_and_left_panel(
 
     assert window.centralWidget() is central is window.workspace
     assert window.workspace.findChild(QFrame, "topbar") is topbar
-    assert window.workspace.context_panel is left_panel
+    assert not window.workspace.is_home
+    assert window.workspace.content_stack.currentWidget() is window.workspace.editor_view
+    assert window.workspace.documents_panel is left_panel
+    assert window.workspace.context_panel is right_panel
+    assert window.workspace.splitter.indexOf(left_panel) == 0
+    assert window.workspace.splitter.indexOf(window.workspace.pages_panel) == 1
+    assert window.workspace.splitter.indexOf(right_panel) == 2
+    assert window.workspace.workspace_documents.count() == 1
     assert window.workspace.page_stack.currentWidget() is window.workspace.pages
     assert window.workspace.pages.count() == 2
     assert window.active_mode is WorkspaceMode.MERGE
@@ -255,6 +272,10 @@ def test_busy_window_blocks_undo_redo_signals_and_shortcuts(
         redo_action.trigger()
         assert [page.id for page in window.project.pages] == initial_page_ids
         assert (window.commands.can_undo, window.commands.can_redo) == initial_history
+
+        window.workspace.home_requested.emit()
+        assert [page.id for page in window.project.pages] == initial_page_ids
+        assert not window.workspace.is_home
     finally:
         window._active_task = None
         window._set_busy(False)
@@ -297,24 +318,27 @@ def test_merge_export_with_one_document_opens_no_dialog_and_starts_no_task(
     window.close()
 
 
-def test_legacy_three_column_splitter_preference_migrates_to_two(
+def test_three_column_splitter_preference_is_restored_and_saved(
     tmp_path: Path,
     qapp: QApplication,
 ) -> None:
     configure_settings(tmp_path, window__splitter_sizes=[210, 700, 340])
     window = MainWindow(ProjectService(UnifiedWindowBackend()))
+    window.insert_blank_page(0, 595.28, 841.89)
     window.show()
     qapp.processEvents()
 
     sizes = window.workspace.splitter.sizes()
-    assert len(sizes) == 2
-    assert abs(sizes[0] - 340) <= 2
+    assert len(sizes) == 3
+    assert sizes[0] >= 220
+    assert sizes[2] <= 360
     assert sizes[1] > sizes[0]
+    assert sizes[1] > sizes[2]
 
     close_clean(window)
     saved_sizes = QSettings("PixoGlace", "PixoPDF").value("window/splitter_sizes")
     assert isinstance(saved_sizes, list)
-    assert len(saved_sizes) == 2
+    assert len(saved_sizes) == 3
 
 
 @pytest.mark.parametrize(
@@ -331,27 +355,37 @@ def test_oversized_context_preference_is_bounded_and_redistributed_without_gap(
 ) -> None:
     configure_settings(tmp_path, window__splitter_sizes=saved_sizes)
     window = MainWindow(ProjectService(UnifiedWindowBackend()))
+    window.insert_blank_page(0, 595.28, 841.89)
     window.resize(1280, 780)
     window.show()
     qapp.processEvents()
 
     workspace = window.workspace
     splitter = workspace.splitter
+    documents = workspace.documents_panel
     context = workspace.context_panel
     pages = workspace.pages_panel
     restored_sizes = splitter.sizes()
     seam_tolerance = 4
 
-    assert len(restored_sizes) == 2
-    assert restored_sizes[0] <= 360
+    assert len(restored_sizes) == 3
+    assert restored_sizes[0] <= 300
+    assert restored_sizes[2] <= 360
+    assert documents.width() <= documents.maximumWidth() == 300
     assert context.width() <= context.maximumWidth() == 360
-    assert abs(context.width() - restored_sizes[0]) <= seam_tolerance
+    assert abs(documents.width() - restored_sizes[0]) <= seam_tolerance
+    assert abs(context.width() - restored_sizes[2]) <= seam_tolerance
 
-    context_end = context.geometry().x() + context.geometry().width()
-    assert abs(pages.geometry().x() - context_end) <= seam_tolerance
-    assert pages.geometry().right() >= splitter.rect().right() - seam_tolerance
+    documents_end = documents.geometry().x() + documents.geometry().width()
+    pages_end = pages.geometry().x() + pages.geometry().width()
+    assert abs(pages.geometry().x() - documents_end) <= seam_tolerance
+    assert abs(context.geometry().x() - pages_end) <= seam_tolerance
+    assert context.geometry().right() >= splitter.rect().right() - seam_tolerance
     assert abs(sum(restored_sizes) - splitter.width()) <= seam_tolerance
-    assert pages.width() >= splitter.width() - context.width() - seam_tolerance
-    assert restored_sizes[1] > saved_sizes[1]
+    assert pages.width() >= (
+        splitter.width() - documents.width() - context.width() - seam_tolerance
+    )
+    assert restored_sizes[1] > restored_sizes[0]
+    assert restored_sizes[1] > restored_sizes[2]
 
     close_clean(window)

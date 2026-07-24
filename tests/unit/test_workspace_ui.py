@@ -2,6 +2,8 @@ from io import BytesIO
 from pathlib import Path
 
 from PIL import Image
+from PySide6.QtCore import QMimeData, QPoint, QPointF, Qt, QUrl
+from PySide6.QtGui import QDragEnterEvent, QDropEvent
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QApplication,
@@ -17,6 +19,7 @@ from pixopdf.ui.workspace.workspace_page import (
     A4_PORTRAIT,
     PAGE_ID_ROLE,
     PageListWidget,
+    PdfDropZone,
     WorkspacePage,
 )
 
@@ -58,6 +61,52 @@ def page_list_with_ids(*page_ids: str) -> PageListWidget:
         item.setData(PAGE_ID_ROLE, page_id)
         pages.addItem(item)
     return pages
+
+
+def test_home_drop_zone_accepts_only_local_pdf_files(qapp: QApplication) -> None:
+    zone = PdfDropZone()
+    dropped: list[list[str]] = []
+    zone.files_dropped.connect(dropped.append)
+    pdf_path = "/tmp/rapport.pdf"
+    pdf_mime = QMimeData()
+    pdf_mime.setUrls([QUrl.fromLocalFile(pdf_path)])
+    enter_event = QDragEnterEvent(
+        QPoint(10, 10),
+        Qt.DropAction.CopyAction,
+        pdf_mime,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+
+    zone.dragEnterEvent(enter_event)
+
+    assert enter_event.isAccepted()
+    assert zone.property("dragActive")
+
+    drop_event = QDropEvent(
+        QPointF(10, 10),
+        Qt.DropAction.CopyAction,
+        pdf_mime,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+    zone.dropEvent(drop_event)
+
+    assert drop_event.isAccepted()
+    assert dropped == [[pdf_path]]
+    assert not zone.property("dragActive")
+
+    invalid_mime = QMimeData()
+    invalid_mime.setUrls([QUrl.fromLocalFile("/tmp/notes.txt")])
+    invalid_event = QDragEnterEvent(
+        QPoint(10, 10),
+        Qt.DropAction.CopyAction,
+        invalid_mime,
+        Qt.MouseButton.LeftButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+    zone.dragEnterEvent(invalid_event)
+    assert not invalid_event.isAccepted()
 
 
 def test_reordered_ids_moves_non_contiguous_selection_to_end(qapp: QApplication) -> None:

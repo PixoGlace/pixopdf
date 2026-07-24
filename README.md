@@ -21,6 +21,10 @@ PixoPDF is a free, cross-platform PDF toolbox by [PixoGlace](https://github.com/
   with a live color-and-number preview on every thumbnail
 - Review, remove or clear imported documents from the workspace without deleting
   the original files
+- Use a three-panel workspace with opened files on the left, page thumbnails in
+  the center and operation-specific options on the right
+- Return to a clean Home drop zone that closes the current workspace and starts
+  a fresh history
 - Light and dark PixoGlace themes
 - Drop PDF files directly from the file manager
 

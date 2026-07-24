@@ -25,6 +25,9 @@ QLabel#dropTitle { font-size: 24px; font-weight: 800; }
 QLabel#dropDescription { color: %(muted)s; font-size: 14px; }
 QLabel#dropPrompt { color: %(accent_text)s; font-size: 14px; font-weight: 700; }
 QLabel#dropPrivacy { color: %(muted)s; font-size: 11px; }
+QLabel#homeDropIcon { color: %(accent_text)s; font-size: 58px; }
+QLabel#homeTitle { color: %(text)s; font-size: 26px; font-weight: 800; }
+QLabel#homeDescription { color: %(muted)s; font-size: 14px; }
 QLabel#trustChip {
     color: %(muted)s; background: %(surface)s; border: 1px solid %(border)s;
     border-radius: 12px; padding: 5px 10px; font-size: 11px;
@@ -109,12 +112,20 @@ QFrame#contextPanel, QFrame#documentsPanel, QFrame#workspaceCommandBar,
 QFrame#workspaceModeBar { background: %(surface)s; border: 0; }
 QFrame#sidebar { border-right: 1px solid %(border)s; }
 QFrame#optionsPanel { border-left: 1px solid %(border)s; }
-QFrame#contextPanel { border-right: 1px solid %(border)s; }
+QFrame#documentsPanel { border-right: 1px solid %(border)s; }
+QFrame#contextPanel { border-left: 1px solid %(border)s; }
 QFrame#topbar { border-bottom: 1px solid %(border)s; }
 QFrame#workspaceModeBar { border-top: 1px solid %(border)s; }
 QFrame#statusbar { border-top: 1px solid %(border)s; }
 QFrame#toolCard, QFrame#actionCard, QFrame#dropZone {
     background: %(surface)s; border: 1px solid %(border)s; border-radius: 9px;
+}
+QFrame#centralDropZone {
+    background: %(surface)s; border: 2px dashed %(border)s; border-radius: 16px;
+}
+QFrame#centralDropZone:hover,
+QFrame#centralDropZone[dragActive="true"] {
+    background: %(teal_bg)s; border-color: #14B8A6;
 }
 QFrame#organizeSelectionCard {
     background: %(surface_alt)s; border: 1px solid %(border)s; border-radius: 10px;
@@ -178,6 +189,13 @@ QPushButton#topCommandButton {
     border-color: transparent; padding: 7px 9px; text-align: center;
 }
 QPushButton#topCommandButton:hover { border-color: #14B8A6; }
+QPushButton#homeButton {
+    border-color: transparent; padding: 7px 10px; text-align: center; font-weight: 700;
+}
+QPushButton#homeButton:hover,
+QPushButton#homeButton[active="true"] {
+    color: %(accent_text)s; background: %(teal_bg)s; border-color: #14B8A6;
+}
 QPushButton#optionTab { border: 0; padding: 8px 2px; font-size: 10px; }
 QPushButton#optionTab:checked { background: %(teal_bg)s; color: %(accent_text)s; font-weight: 700; }
 QPushButton#toolButton { border: 0; padding: 4px 2px; color: %(text)s; }
@@ -294,7 +312,10 @@ QAbstractScrollArea::corner { background: transparent; border: 0; }
 QScrollArea#optionsScroll, QScrollArea#optionsScroll::viewport,
 QWidget#optionsBody { background: transparent; }
 QScrollArea#modeNav, QScrollArea#modeNav::viewport,
-QWidget#modeNavBody, QStackedWidget#optionsStack { background: transparent; border: 0; }
+QWidget#modeNavBody, QStackedWidget#optionsStack,
+QStackedWidget#contentStack, QWidget#homeView, QWidget#editorView {
+    background: transparent; border: 0;
+}
 QMenu {
     background: %(surface_alt)s; color: %(text)s; border: 1px solid %(border)s;
     padding: 5px;

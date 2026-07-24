@@ -225,8 +225,8 @@ def test_documents_are_visible_and_removable_in_organize_merge_and_split(
     workspace = WorkspacePage(NoRenderRenderer())
     remove_requests: list[str] = []
     workspace.remove_document_requested.connect(remove_requests.append)
-    clear_requests: list[bool] = []
-    workspace.clear_workspace_requested.connect(lambda: clear_requests.append(True))
+    home_requests: list[bool] = []
+    workspace.home_requested.connect(lambda: home_requests.append(True))
 
     workspace.refresh(project)
     qapp.processEvents()
@@ -245,6 +245,7 @@ def test_documents_are_visible_and_removable_in_organize_merge_and_split(
     assert remove_requests == [str(first_document.id)]
 
     workspace.set_mode(WorkspaceMode.MERGE)
+    assert workspace.merge_documents is workspace.organize_documents
     assert workspace.merge_documents.count() == 2
     assert workspace.merge_documents_heading.text() == "Documents (2)"
     workspace.merge_documents.setCurrentRow(1)
@@ -256,6 +257,8 @@ def test_documents_are_visible_and_removable_in_organize_merge_and_split(
     ]
 
     workspace.set_mode(WorkspaceMode.SPLIT)
+    assert workspace.split_documents is workspace.organize_documents
+    assert workspace.workspace_documents_card.parentWidget() is workspace.documents_panel
     assert workspace.split_documents.count() == 2
     assert workspace.split_documents_heading.text() == "Documents (2)"
     assert workspace.split_documents.isVisibleTo(workspace)
@@ -266,7 +269,7 @@ def test_documents_are_visible_and_removable_in_organize_merge_and_split(
     assert remove_requests[-1] == str(first_document.id)
     assert workspace.split_clear_workspace_button.isEnabled()
     workspace.split_clear_workspace_button.click()
-    assert clear_requests == [True]
+    assert home_requests == [True]
     workspace.shutdown()
 
 
