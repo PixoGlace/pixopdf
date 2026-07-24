@@ -32,7 +32,6 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QButtonGroup,
-    QComboBox,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -489,8 +488,6 @@ class WorkspacePage(QWidget):
     home_requested = Signal()
     undo_requested = Signal()
     redo_requested = Signal()
-    theme_requested = Signal()
-    language_requested = Signal(str)
     mode_requested = Signal(str)
     primary_action_changed = Signal()
 
@@ -640,27 +637,6 @@ class WorkspacePage(QWidget):
             "Exporter le PDF (Ctrl+S)",
         )
         command_layout.addWidget(self.export_button)
-        self.theme_button = self._button(
-            "◐",
-            self.theme_requested.emit,
-            "iconButton",
-            "Changer de thème",
-        )
-        self.theme_button.setAccessibleName("Changer de thème")
-        command_layout.addWidget(self.theme_button)
-        self.language_combo = QComboBox()
-        self.language_combo.setObjectName("languageCombo")
-        self.language_combo.setAccessibleName("Langue de l’interface")
-        self.language_combo.setToolTip("Changer la langue de l’interface")
-        self.language_combo.setMinimumContentsLength(8)
-        self.language_combo.setMaximumWidth(126)
-        for language_code, metadata in LANGUAGES.items():
-            self.language_combo.addItem(str(metadata["name"]), language_code)
-        current_language_index = self.language_combo.findData(self.language)
-        if current_language_index >= 0:
-            self.language_combo.setCurrentIndex(current_language_index)
-        self.language_combo.currentIndexChanged.connect(self._request_language)
-        command_layout.addWidget(self.language_combo)
         layout.addWidget(command_bar)
 
         mode_bar = QFrame()
@@ -1664,13 +1640,6 @@ class WorkspacePage(QWidget):
         form = "one" if count == 1 else "other"
         return self.t(f"{key}_{form}", count=count, **values)
 
-    def _request_language(self, _index: int) -> None:
-        language = str(self.language_combo.currentData())
-        if language not in LANGUAGES:
-            return
-        self.set_language(language)
-        self.language_requested.emit(language)
-
     def set_language(self, language: str) -> None:
         selected = language if language in LANGUAGES else DEFAULT_LANGUAGE
         if selected == self.language and self._translated_once:
@@ -1686,11 +1655,6 @@ class WorkspacePage(QWidget):
         # A PDF keeps its logical page order regardless of the interface language.
         self.pages.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
         self.page_delegate.language = selected
-        combo_index = self.language_combo.findData(selected)
-        if combo_index >= 0 and combo_index != self.language_combo.currentIndex():
-            blocked = self.language_combo.blockSignals(True)
-            self.language_combo.setCurrentIndex(combo_index)
-            self.language_combo.blockSignals(blocked)
         self._translate_ui()
         self._translated_once = True
         if self._project is not None:
@@ -1706,10 +1670,6 @@ class WorkspacePage(QWidget):
         self.redo_button.setToolTip(self.t("redo_tooltip"))
         self.add_files_button.setText(f"＋  {self.t('add_pdfs')}")
         self.add_files_button.setToolTip(self.t("add_pdfs_tooltip"))
-        self.theme_button.setToolTip(self.t("change_theme"))
-        self.theme_button.setAccessibleName(self.t("change_theme"))
-        self.language_combo.setAccessibleName(self.t("language"))
-        self.language_combo.setToolTip(self.t("language_tooltip"))
         self.kofi_label.setText(
             f'<a href="{KOFI_URL}" style="color:#14B8A6; text-decoration:none">'
             f"♥ {self.t('sponsor_kofi')}</a>"

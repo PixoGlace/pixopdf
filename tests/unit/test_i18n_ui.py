@@ -47,10 +47,8 @@ def test_workspace_switches_four_languages_and_keeps_pdf_order_ltr(
 ) -> None:
     workspace = WorkspacePage(UnusedRenderer())
     try:
-        assert [
-            workspace.language_combo.itemData(index)
-            for index in range(workspace.language_combo.count())
-        ] == ["fr", "en", "zh", "ar"]
+        assert not hasattr(workspace, "language_combo")
+        assert not hasattr(workspace, "theme_button")
 
         workspace.set_language("en")
         assert workspace.home_title.text() == "Welcome to PixoPDF"
@@ -118,7 +116,8 @@ def test_main_window_persists_language_and_restores_rtl(
     try:
         assert second.language == "ar"
         assert second.workspace.language == "ar"
-        assert second.workspace.language_combo.currentData() == "ar"
+        assert not hasattr(second.workspace, "language_combo")
+        assert not hasattr(second.workspace, "theme_button")
         assert second.windowTitle().startswith("مشروع بلا عنوان")
         assert qapp.layoutDirection() == Qt.LayoutDirection.RightToLeft
     finally:

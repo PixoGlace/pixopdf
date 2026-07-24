@@ -70,6 +70,7 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.service = service
         self.update_service = update_service or UpdateService()
+        self._is_macos = sys.platform == "darwin"
         self.project = PdfProject()
         self.commands = CommandStack()
         self.settings = QSettings(ORGANIZATION, APP_NAME)
@@ -199,8 +200,6 @@ class MainWindow(QMainWindow):
         self.workspace.blank_page_requested.connect(self.insert_blank_page)
         self.workspace.undo_requested.connect(self.undo)
         self.workspace.redo_requested.connect(self.redo)
-        self.workspace.theme_requested.connect(self.toggle_theme)
-        self.workspace.language_requested.connect(self.set_language)
         self.workspace.mode_requested.connect(self.activate_mode)
         self.workspace.pages.itemSelectionChanged.connect(self._sync_menu_action_state)
         self.workspace.primary_action_changed.connect(self._sync_primary_menu_action)
@@ -402,10 +401,11 @@ class MainWindow(QMainWindow):
         self.shortcut_actions: list[QAction] = []
 
         def shortcut_action(
+            text: str,
             shortcut: QKeySequence.StandardKey | str,
             callback: Callable[[], Any],
         ) -> QAction:
-            action = QAction(self)
+            action = QAction(text, self)
             action.setShortcut(shortcut)
             action.triggered.connect(callback)
             self.addAction(action)
@@ -413,87 +413,138 @@ class MainWindow(QMainWindow):
             return action
 
         self.new_workspace_action = shortcut_action(
+            self.t("menu_new_workspace"),
             QKeySequence.StandardKey.New,
             self.go_home,
         )
-        self.open_action = shortcut_action(QKeySequence.StandardKey.Open, self.open_files)
+        self.open_action = shortcut_action(
+            self.t("menu_add_pdfs"),
+            QKeySequence.StandardKey.Open,
+            self.open_files,
+        )
         self.export_action = shortcut_action(
+            self.workspace.export_button.text(),
             QKeySequence.StandardKey.Save,
             self.execute_primary_action,
         )
-        self.quit_action = shortcut_action(QKeySequence.StandardKey.Quit, self.close)
-        self.undo_action = shortcut_action(QKeySequence.StandardKey.Undo, self.undo)
-        self.redo_action = shortcut_action(QKeySequence.StandardKey.Redo, self.redo)
+        self.quit_action = shortcut_action(
+            self.t("menu_quit"),
+            QKeySequence.StandardKey.Quit,
+            self.close,
+        )
+        self.undo_action = shortcut_action(
+            self.t("undo"),
+            QKeySequence.StandardKey.Undo,
+            self.undo,
+        )
+        self.redo_action = shortcut_action(
+            self.t("redo"),
+            QKeySequence.StandardKey.Redo,
+            self.redo,
+        )
         self.select_all_action = shortcut_action(
+            self.t("select_all"),
             QKeySequence.StandardKey.SelectAll,
             self.workspace.pages.selectAll,
         )
         self.clear_selection_action = shortcut_action(
+            self.t("clear_selection_menu"),
             "Esc",
             self.workspace.pages.clearSelection,
         )
         self.duplicate_action = shortcut_action(
+            self.t("duplicate_selected_pages"),
             "Ctrl+D",
             lambda: self.duplicate_pages(self.workspace.selected_indices()),
         )
         self.rotate_left_action = shortcut_action(
+            self.t("rotate_selected_left"),
             "Ctrl+L",
             lambda: self.rotate_pages(self.workspace.selected_indices(), -90),
         )
         self.rotate_right_action = shortcut_action(
+            self.t("rotate_selected_right"),
             "Ctrl+R",
             lambda: self.rotate_pages(self.workspace.selected_indices(), 90),
         )
         self.blank_page_action = shortcut_action(
+            self.t("insert_blank_page_menu"),
             "Ctrl+Shift+B",
             self.workspace.request_default_blank_page,
         )
         self.delete_selection_action = shortcut_action(
+            self.t("delete_page"),
             "Delete",
             self.workspace._request_delete,
         )
-        self.zoom_in_action = shortcut_action("Ctrl++", self.workspace._zoom_in)
-        self.zoom_out_action = shortcut_action("Ctrl+-", self.workspace._zoom_out)
+        self.zoom_in_action = shortcut_action(
+            self.t("zoom_in"),
+            QKeySequence.StandardKey.ZoomIn,
+            self.workspace._zoom_in,
+        )
+        self.zoom_out_action = shortcut_action(
+            self.t("zoom_out"),
+            QKeySequence.StandardKey.ZoomOut,
+            self.workspace._zoom_out,
+        )
         self.quick_help_action = shortcut_action(
+            self.t("menu_quick_help"),
             QKeySequence.StandardKey.HelpContents,
             self.show_quick_help_dialog,
         )
 
-        self.toggle_theme_action = QAction(self)
+        self.toggle_theme_action = QAction(
+            self.t("switch_to_light_theme" if self.theme is Theme.DARK else "switch_to_dark_theme"),
+            self,
+        )
         self.toggle_theme_action.triggered.connect(self.toggle_theme)
-        self.settings_action = QAction(self)
+        self.settings_action = QAction(self.t("menu_settings"), self)
         self.settings_action.setObjectName("settingsAction")
-        self.settings_action.setMenuRole(QAction.MenuRole.PreferencesRole)
-        self.settings_action.setShortcut(QKeySequence("Ctrl+,"))
+        self.settings_action.setMenuRole(
+            QAction.MenuRole.PreferencesRole
+            if self._is_macos
+            else QAction.MenuRole.ApplicationSpecificRole
+        )
+        preference_shortcuts = QKeySequence.keyBindings(QKeySequence.StandardKey.Preferences)
+        self.settings_action.setShortcut(
+            preference_shortcuts[0] if preference_shortcuts else QKeySequence("Ctrl+,")
+        )
         self.settings_action.triggered.connect(self.show_settings_dialog)
-        self.project_action = QAction(self)
+        self.project_action = QAction(self.t("menu_project_page"), self)
         self.project_action.triggered.connect(self.open_project_page)
-        self.sponsor_action = QAction(self)
+        self.sponsor_action = QAction(self.t("sponsor_kofi"), self)
         self.sponsor_action.triggered.connect(self.open_sponsor_page)
-        self.check_updates_action = QAction(self)
+        self.check_updates_action = QAction(self.t("check_updates"), self)
         self.check_updates_action.triggered.connect(self.check_for_updates_manually)
-        self.about_action = QAction(self)
+        self.about_action = QAction(self.t("about_title", app=APP_NAME), self)
         self.about_action.setObjectName("aboutAction")
-        self.about_action.setMenuRole(QAction.MenuRole.AboutRole)
+        self.about_action.setMenuRole(
+            QAction.MenuRole.AboutRole
+            if self._is_macos
+            else QAction.MenuRole.ApplicationSpecificRole
+        )
         self.about_action.triggered.connect(self.show_about_dialog)
         self.quit_action.setObjectName("quitAction")
-        self.quit_action.setMenuRole(QAction.MenuRole.QuitRole)
+        self.quit_action.setMenuRole(
+            QAction.MenuRole.QuitRole
+            if self._is_macos
+            else QAction.MenuRole.ApplicationSpecificRole
+        )
 
     def _create_menus(self) -> None:
         menu_bar = self.menuBar()
-        if sys.platform == "darwin":
-            menu_bar.setNativeMenuBar(True)
+        menu_bar.setNativeMenuBar(self._is_macos)
 
-        self.file_menu = menu_bar.addMenu("")
+        self.file_menu = menu_bar.addMenu(self.t("menu_file"))
         self.file_menu.addAction(self.new_workspace_action)
         self.file_menu.addAction(self.open_action)
         self.file_menu.addSeparator()
         self.file_menu.addAction(self.export_action)
-        if sys.platform != "darwin":
+        if not self._is_macos:
             self.file_menu.addSeparator()
         self.file_menu.addAction(self.quit_action)
 
-        self.edit_menu = menu_bar.addMenu("")
+        self.edit_menu = menu_bar.addMenu(self.t("menu_edit"))
         self.edit_menu.addAction(self.undo_action)
         self.edit_menu.addAction(self.redo_action)
         self.edit_menu.addSeparator()
@@ -506,37 +557,42 @@ class MainWindow(QMainWindow):
         self.edit_menu.addAction(self.blank_page_action)
         self.edit_menu.addAction(self.delete_selection_action)
 
-        self.view_menu = menu_bar.addMenu("")
+        self.view_menu = menu_bar.addMenu(self.t("menu_view"))
         self.view_menu.addAction(self.zoom_in_action)
         self.view_menu.addAction(self.zoom_out_action)
         self.view_menu.addSeparator()
         self.view_menu.addAction(self.toggle_theme_action)
 
-        self.tools_menu = menu_bar.addMenu("")
+        self.tools_menu = menu_bar.addMenu(self.t("menu_tools"))
         self.tool_mode_group = QActionGroup(self)
         self.tool_mode_group.setExclusive(True)
         self.tool_mode_actions: dict[WorkspaceMode, QAction] = {}
         for mode, spec in MODE_SPECS.items():
-            action = QAction(self)
+            action = QAction(self.t(f"mode_{mode.value}_label"), self)
             action.setCheckable(True)
             action.setEnabled(spec.is_selectable)
+            action.setToolTip(
+                self.t(f"mode_{mode.value}_home_description")
+                if spec.is_selectable
+                else self.t("feature_unavailable", feature=action.text())
+            )
             action.triggered.connect(
                 lambda _checked=False, selected=mode: self.activate_mode(selected)
             )
             self.tool_mode_group.addAction(action)
             self.tool_mode_actions[mode] = action
             self.tools_menu.addAction(action)
-        if sys.platform != "darwin":
+        if not self._is_macos:
             self.tools_menu.addSeparator()
         self.tools_menu.addAction(self.settings_action)
 
-        self.help_menu = menu_bar.addMenu("")
+        self.help_menu = menu_bar.addMenu(self.t("menu_help"))
         self.help_menu.addAction(self.quick_help_action)
         self.help_menu.addAction(self.project_action)
         self.help_menu.addAction(self.sponsor_action)
         self.help_menu.addSeparator()
         self.help_menu.addAction(self.check_updates_action)
-        if sys.platform != "darwin":
+        if not self._is_macos:
             self.help_menu.addSeparator()
         self.help_menu.addAction(self.about_action)
 

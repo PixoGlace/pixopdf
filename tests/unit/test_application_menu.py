@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from PySide6.QtCore import QRunnable, QSettings, Qt, QUrl
 from PySide6.QtGui import QAction, QDesktopServices, QKeySequence
-from PySide6.QtWidgets import QApplication, QDialog
+from PySide6.QtWidgets import QApplication, QDialog, QMenuBar
 
 from pixopdf.config import KOFI_URL, PROJECT_URL, VERSION
 from pixopdf.domain.project import PdfProject
@@ -158,10 +158,66 @@ def test_main_menu_has_expected_sections_actions_and_unique_shortcuts(
             if not action.shortcut().isEmpty()
         ]
         assert len(shortcuts) == len(set(shortcuts))
-        assert (
-            window.settings_action.shortcut().toString(QKeySequence.SequenceFormat.PortableText)
-            == "Ctrl+,"
+        preference_shortcuts = QKeySequence.keyBindings(QKeySequence.StandardKey.Preferences)
+        expected_preferences = (
+            preference_shortcuts[0] if preference_shortcuts else QKeySequence("Ctrl+,")
         )
+        assert window.settings_action.shortcut() == expected_preferences
+    finally:
+        _close_clean(window, qapp)
+
+
+@pytest.mark.parametrize(
+    ("platform", "native_menu", "native_roles"),
+    [
+        ("darwin", True, True),
+        ("win32", False, False),
+        ("linux", False, False),
+    ],
+)
+def test_menu_uses_platform_native_conventions(
+    platform: str,
+    native_menu: bool,
+    native_roles: bool,
+    tmp_path: Path,
+    qapp: QApplication,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(main_window_module.sys, "platform", platform)
+    native_requests: list[bool] = []
+    original_set_native = QMenuBar.setNativeMenuBar
+
+    def record_native_request(menu_bar: QMenuBar, native: bool) -> None:
+        native_requests.append(native)
+        original_set_native(menu_bar, native)
+
+    monkeypatch.setattr(QMenuBar, "setNativeMenuBar", record_native_request)
+    window = _window(tmp_path)
+    try:
+        assert native_requests[-1] is native_menu
+        if qapp.platformName() != "offscreen":
+            assert window.menuBar().isNativeMenuBar() is native_menu
+        assert window._is_macos is native_menu
+        assert all(
+            action.text()
+            for action in (
+                window.settings_action,
+                window.about_action,
+                window.quit_action,
+            )
+        )
+
+        if native_roles:
+            assert window.settings_action.menuRole() is QAction.MenuRole.PreferencesRole
+            assert window.about_action.menuRole() is QAction.MenuRole.AboutRole
+            assert window.quit_action.menuRole() is QAction.MenuRole.QuitRole
+        else:
+            assert window.settings_action.menuRole() is QAction.MenuRole.ApplicationSpecificRole
+            assert window.about_action.menuRole() is QAction.MenuRole.ApplicationSpecificRole
+            assert window.quit_action.menuRole() is QAction.MenuRole.ApplicationSpecificRole
+            assert window.settings_action in window.tools_menu.actions()
+            assert window.about_action in window.help_menu.actions()
+            assert window.quit_action in window.file_menu.actions()
     finally:
         _close_clean(window, qapp)
 
