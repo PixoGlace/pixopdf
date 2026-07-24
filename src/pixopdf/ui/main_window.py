@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
 
 from pixopdf.assets import asset_path
 from pixopdf.commands import (
+    ClearWorkspaceCommand,
     CommandStack,
     DeletePagesCommand,
     DuplicatePagesCommand,
@@ -120,6 +121,7 @@ class MainWindow(QMainWindow):
         self.workspace.delete_requested.connect(self.delete_pages)
         self.workspace.restore_requested.connect(self.restore_pages)
         self.workspace.remove_document_requested.connect(self.remove_document)
+        self.workspace.clear_workspace_requested.connect(self.clear_workspace)
         self.workspace.split_requested.connect(self.split_document)
         self.workspace.duplicate_requested.connect(self.duplicate_pages)
         self.workspace.rotate_requested.connect(self.rotate_pages)
@@ -275,6 +277,16 @@ class MainWindow(QMainWindow):
         self.workspace.show_message(
             f"{document.display_name} retiré du workspace • "
             f"{command.removed_page_count} page(s) retirée(s) • Ctrl+Z pour annuler"
+        )
+
+    def clear_workspace(self) -> None:
+        if self._active_task is not None or (not self.project.documents and not self.project.pages):
+            return
+        command = ClearWorkspaceCommand(self.project)
+        self.commands.execute(command)
+        self.workspace.show_message(
+            f"Workspace vidé • {command.removed_document_count} document(s) et "
+            f"{command.removed_page_count} page(s) retirés • Ctrl+Z pour annuler"
         )
 
     def duplicate_pages(self, indices: list[int]) -> None:

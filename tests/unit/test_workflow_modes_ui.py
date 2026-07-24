@@ -2,6 +2,7 @@ from pathlib import Path
 
 from PySide6.QtWidgets import QApplication
 
+from pixopdf.commands import DeletePagesCommand
 from pixopdf.domain.document import SourceDocument
 from pixopdf.domain.page import PageReference
 from pixopdf.domain.project import PdfProject
@@ -11,6 +12,7 @@ from pixopdf.ui.workspace.workspace_page import (
     A4_LANDSCAPE,
     A4_PORTRAIT,
     A5_PORTRAIT,
+    SPLIT_GROUPS_ROLE,
     WorkspacePage,
 )
 
@@ -137,39 +139,94 @@ def test_split_panel_validates_strategies_and_emits_request(
     assert MODE_SPECS[WorkspaceMode.SPLIT].is_selectable
     assert workspace.current_mode is WorkspaceMode.SPLIT
     assert workspace.split_each_radio.isChecked()
-    assert workspace.split_execute_button.isEnabled()
+    assert not hasattr(workspace, "split_execute_button")
     assert "5 fichiers PDF" in workspace.split_validation_label.text()
+    assert workspace.split_batch_card.isAncestorOf(workspace.split_batch_size)
+    assert workspace.split_ranges_card.isAncestorOf(workspace.split_ranges_input)
+    assert workspace.split_each_card.property("selected")
+    assert not workspace.split_batch_size.isVisibleTo(workspace)
+    assert [
+        workspace.pages.item(row).data(SPLIT_GROUPS_ROLE) for row in range(workspace.pages.count())
+    ] == [(1,), (2,), (3,), (4,), (5,)]
 
     workspace.split_batch_radio.setChecked(True)
     workspace.split_batch_size.setValue(2)
     qapp.processEvents()
+    assert workspace.split_batch_card.property("selected")
+    assert workspace.split_batch_size.isVisibleTo(workspace)
+    assert not workspace.split_ranges_input.isVisibleTo(workspace)
     assert "3 fichiers PDF" in workspace.split_validation_label.text()
     assert workspace.export_button.text() == "Diviser en 3 PDF"
-    workspace.split_execute_button.click()
+    assert [
+        workspace.pages.item(row).data(SPLIT_GROUPS_ROLE) for row in range(workspace.pages.count())
+    ] == [(1,), (1,), (2,), (2,), (3,)]
+    workspace.request_split()
     assert split_requests == [("batch", 2, "")]
 
     workspace.split_ranges_radio.setChecked(True)
     workspace.split_ranges_input.setText("1-8")
     qapp.processEvents()
-    assert not workspace.split_execute_button.isEnabled()
+    assert not workspace.export_button.isEnabled()
     assert "dépasse" in workspace.split_validation_label.text()
+    assert all(
+        workspace.pages.item(row).data(SPLIT_GROUPS_ROLE) is None
+        for row in range(workspace.pages.count())
+    )
 
     workspace.split_ranges_input.setText("1-2; 3,5")
     qapp.processEvents()
-    assert workspace.split_execute_button.isEnabled()
+    assert workspace.export_button.isEnabled()
     assert "2 fichiers PDF" in workspace.split_validation_label.text()
-    workspace.split_execute_button.click()
+    assert [
+        workspace.pages.item(row).data(SPLIT_GROUPS_ROLE) for row in range(workspace.pages.count())
+    ] == [(1,), (1,), (2,), (), (2,)]
+    assert "non incluse" in workspace.pages.item(3).toolTip()
+    workspace.request_split()
     assert split_requests[-1] == ("ranges", 2, "1-2; 3,5")
+
+    workspace.split_ranges_input.setText("1-3; 3-4")
+    assert workspace.pages.item(2).data(SPLIT_GROUPS_ROLE) == (1, 2)
+    assert "PDF 1, PDF 2" in workspace.pages.item(2).toolTip()
+
+    workspace.set_mode(WorkspaceMode.ORGANIZE)
+    assert all(
+        workspace.pages.item(row).data(SPLIT_GROUPS_ROLE) is None
+        for row in range(workspace.pages.count())
+    )
+    workspace.set_mode(WorkspaceMode.SPLIT)
+    assert workspace.pages.item(2).data(SPLIT_GROUPS_ROLE) == (1, 2)
     workspace.shutdown()
 
 
-def test_documents_are_visible_and_removable_in_organize_and_merge(
+def test_split_preview_ignores_deleted_pages_without_shifting_batches(
+    qapp: QApplication,
+) -> None:
+    project = blank_project(5)
+    DeletePagesCommand(project, [1]).execute()
+    workspace = WorkspacePage(NoRenderRenderer())
+    workspace.refresh(project)
+    workspace.set_mode(WorkspaceMode.SPLIT)
+    workspace.split_batch_radio.setChecked(True)
+    workspace.split_batch_size.setValue(2)
+    qapp.processEvents()
+
+    assert [
+        workspace.pages.item(row).data(SPLIT_GROUPS_ROLE) for row in range(workspace.pages.count())
+    ] == [(1,), None, (1,), (2,), (2,)]
+    assert workspace.pages.item(1).data(SPLIT_GROUPS_ROLE) is None
+    assert "État : Supprimée" in workspace.pages.item(1).toolTip()
+    workspace.shutdown()
+
+
+def test_documents_are_visible_and_removable_in_organize_merge_and_split(
     qapp: QApplication,
 ) -> None:
     project = merge_ready_project()
     workspace = WorkspacePage(NoRenderRenderer())
     remove_requests: list[str] = []
     workspace.remove_document_requested.connect(remove_requests.append)
+    clear_requests: list[bool] = []
+    workspace.clear_workspace_requested.connect(lambda: clear_requests.append(True))
 
     workspace.refresh(project)
     qapp.processEvents()
@@ -197,6 +254,19 @@ def test_documents_are_visible_and_removable_in_organize_and_merge(
         str(first_document.id),
         str(list(project.documents.values())[1].id),
     ]
+
+    workspace.set_mode(WorkspaceMode.SPLIT)
+    assert workspace.split_documents.count() == 2
+    assert workspace.split_documents_heading.text() == "Documents (2)"
+    assert workspace.split_documents.isVisibleTo(workspace)
+    workspace.split_documents.setCurrentRow(0)
+    qapp.processEvents()
+    assert workspace.split_remove_document_button.isEnabled()
+    workspace.split_remove_document_button.click()
+    assert remove_requests[-1] == str(first_document.id)
+    assert workspace.split_clear_workspace_button.isEnabled()
+    workspace.split_clear_workspace_button.click()
+    assert clear_requests == [True]
     workspace.shutdown()
 
 

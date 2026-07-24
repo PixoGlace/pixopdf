@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from pixopdf.commands import (
+    ClearWorkspaceCommand,
     CommandStack,
     DeletePagesCommand,
     DuplicatePagesCommand,
@@ -53,6 +54,43 @@ def test_remove_document_and_its_pages_is_undoable() -> None:
     stack.redo()
     assert list(project.documents) == [second.id]
     assert all(page.source_document_id != first.id for page in project.pages)
+
+
+def test_clear_workspace_is_undoable_and_keeps_source_files_untouched(
+    tmp_path: Path,
+) -> None:
+    project = PdfProject()
+    first_path = tmp_path / "first.pdf"
+    second_path = tmp_path / "second.pdf"
+    first_path.write_bytes(b"first")
+    second_path.write_bytes(b"second")
+    first = SourceDocument.create(first_path, 2)
+    second = SourceDocument.create(second_path, 1)
+    project.add_document(first)
+    project.add_document(second)
+    InsertBlankPageCommand(project, index=1).execute()
+    original_documents = dict(project.documents)
+    original_pages = list(project.pages)
+    stack = CommandStack()
+    command = ClearWorkspaceCommand(project)
+
+    stack.execute(command)
+
+    assert command.removed_document_count == 2
+    assert command.removed_page_count == 4
+    assert project.documents == {}
+    assert project.pages == []
+    assert first_path.read_bytes() == b"first"
+    assert second_path.read_bytes() == b"second"
+
+    stack.undo()
+
+    assert project.documents == original_documents
+    assert project.pages == original_pages
+
+    stack.redo()
+    assert project.documents == {}
+    assert project.pages == []
 
 
 def test_delete_undo_redo() -> None:

@@ -252,6 +252,43 @@ def test_organize_document_remove_action_removes_source_pages_and_undo_restores(
     close_clean(window)
 
 
+def test_split_workspace_can_be_cleared_and_restored(
+    tmp_path: Path,
+    qapp: QApplication,
+) -> None:
+    QSettings.setDefaultFormat(QSettings.Format.IniFormat)
+    QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, str(tmp_path))
+    window = MainWindow(ProjectService(WindowBackend()))
+    source = tmp_path / "split-source.pdf"
+    source.write_bytes(b"fake")
+    window.import_paths([str(source)])
+    wait_for_operation(window)
+    window.activate_mode(WorkspaceMode.SPLIT)
+    qapp.processEvents()
+
+    assert len(window.project.documents) == 1
+    assert len(window.project.pages) == 2
+    assert window.workspace.split_documents.count() == 1
+
+    window.workspace.split_clear_workspace_button.click()
+    qapp.processEvents()
+
+    assert window.project.documents == {}
+    assert window.project.pages == []
+    assert window.workspace.split_documents.count() == 0
+    assert not window.workspace.export_button.isEnabled()
+    assert "Workspace vidé" in window.workspace.status.text()
+
+    window.commands.undo()
+    qapp.processEvents()
+
+    assert len(window.project.documents) == 1
+    assert len(window.project.pages) == 2
+    assert window.workspace.split_documents.count() == 1
+    assert window.workspace.export_button.isEnabled()
+    close_clean(window)
+
+
 def test_split_mode_exports_batches_to_selected_directory(
     tmp_path: Path,
     qapp: QApplication,

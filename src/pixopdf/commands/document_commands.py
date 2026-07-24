@@ -9,6 +9,37 @@ from .base import Command
 
 
 @dataclass
+class ClearWorkspaceCommand(Command):
+    """Remove every document and page while keeping an undoable snapshot."""
+
+    project: PdfProject
+    _documents: dict[UUID, SourceDocument] = field(default_factory=dict, init=False)
+    _pages: list[PageReference] = field(default_factory=list, init=False)
+    _previous_modified: bool = field(default=False, init=False)
+
+    @property
+    def removed_document_count(self) -> int:
+        return len(self._documents)
+
+    @property
+    def removed_page_count(self) -> int:
+        return len(self._pages)
+
+    def execute(self) -> None:
+        self._documents = dict(self.project.documents)
+        self._pages = list(self.project.pages)
+        self._previous_modified = self.project.modified
+        self.project.documents.clear()
+        self.project.pages.clear()
+        self.project.modified = True
+
+    def undo(self) -> None:
+        self.project.documents = dict(self._documents)
+        self.project.pages = list(self._pages)
+        self.project.modified = self._previous_modified
+
+
+@dataclass
 class RemoveDocumentCommand(Command):
     """Remove one source and all its page references without touching its file."""
 

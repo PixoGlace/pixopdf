@@ -1,5 +1,5 @@
 from .command_stack import CommandStack
-from .document_commands import RemoveDocumentCommand
+from .document_commands import ClearWorkspaceCommand, RemoveDocumentCommand
 from .page_commands import (
     DeletePagesCommand,
     DuplicatePagesCommand,
@@ -12,6 +12,7 @@ from .page_commands import (
 
 __all__ = [
     "CommandStack",
+    "ClearWorkspaceCommand",
     "DeletePagesCommand",
     "DuplicatePagesCommand",
     "InsertBlankPageCommand",

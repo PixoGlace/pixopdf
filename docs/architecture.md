@@ -25,4 +25,11 @@ Every source document remains untouched.
 Split planning converts each chosen strategy into zero-based groups over active
 pages. Every group is exported to a temporary directory first; completed outputs
 are moved into the selected destination only after every PDF has been generated.
-Existing output files are never overwritten.
+Existing output files are never overwritten. The UI maps these active-page groups
+back to the complete thumbnail list, skipping soft-deleted pages, and stores all
+output memberships on each item so overlapping custom ranges remain visible.
+Colored borders are paired with numbered PDF badges and text tooltips.
+
+Removing one source or clearing the complete workspace is implemented as an
+undoable command. These commands only mutate the virtual project; original files
+are never deleted.

@@ -41,6 +41,10 @@ QLabel#changeLegend[changeKind="modified"] {
 QLabel#changeLegend[changeKind="deleted"] {
     color: %(muted)s; background: %(surface_alt)s; border: 1px solid %(border)s;
 }
+QLabel#splitPreviewLegend {
+    color: %(accent_text)s; background: %(teal_bg)s; border: 1px solid #14B8A6;
+    border-radius: 9px; padding: 4px 8px; font-size: 10px; font-weight: 800;
+}
 QLabel#toolIcon { color: %(accent_text)s; font-weight: 700; }
 QLabel#optionHeading {
     color: %(muted)s; font-size: 10px; font-weight: 800; padding-top: 7px;
@@ -48,6 +52,13 @@ QLabel#optionHeading {
 QLabel#selectionSummary {
     background: %(teal_bg)s; color: %(accent_text)s; border-radius: 7px;
     padding: 9px 10px; font-weight: 700;
+}
+QLabel#splitPlanSummary {
+    color: %(accent_text)s; background: %(teal_bg)s; border: 1px solid #14B8A6;
+    border-radius: 8px; padding: 9px 10px; font-weight: 700;
+}
+QLabel#splitPlanSummary[feedback="error"] {
+    color: %(danger_text)s; background: %(danger_bg)s; border-color: %(danger_border)s;
 }
 QLabel#organizeSelectionTitle { font-size: 13px; font-weight: 800; }
 QLabel#organizeSelectionDetail { color: %(organize_muted)s; font-size: 11px; }
@@ -113,6 +124,15 @@ QFrame#organizeSelectionCard[selectionState="selected"] {
 }
 QFrame#organizeGroupCard {
     background: %(surface_alt)s; border: 1px solid %(border)s; border-radius: 10px;
+}
+QFrame#splitStrategyCard {
+    background: %(surface_alt)s; border: 1px solid %(border)s; border-radius: 10px;
+}
+QFrame#splitStrategyCard[selected="true"] {
+    background: %(teal_bg)s; border: 2px solid #14B8A6;
+}
+QLabel#splitStrategyDescription {
+    color: %(organize_muted)s; font-size: 11px; padding-left: 23px;
 }
 QFrame#mergeDocumentsCard, QFrame#documentsCard {
     background: %(surface_alt)s; border: 1px solid %(border)s; border-radius: 10px;
