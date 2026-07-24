@@ -53,8 +53,14 @@ poetry run pixopdf
 ```
 
 Run all checks with `make check`. Build the Python package and a platform-native
-executable with `make build`. Windows, macOS and Linux builds are produced
-separately.
+application with `make build`. Windows and Linux receive an executable; macOS
+receives a signed-ready `PixoPDF.app` bundle with the correct application menu.
+The builds are produced separately.
+
+Application preferences are available with `Ctrl+,` on every platform
+(`⌘,` on macOS). They appear under **PixoPDF > Settings…** on macOS and
+**Tools > Settings…** on Windows and Linux. Language and theme controls are
+centralized in this dialog instead of occupying the workspace toolbar.
 
 Contributions are welcome; see `CONTRIBUTING.md`. PixoPDF is independent from PixoCrop and does not introduce a runtime coupling with it.
 

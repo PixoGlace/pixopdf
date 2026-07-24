@@ -12,6 +12,7 @@ from pixopdf.ui.main_window import MainWindow
 def run() -> int:
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
+    app.setApplicationDisplayName(APP_NAME)
     app.setApplicationVersion(VERSION)
     app.setOrganizationName(ORGANIZATION)
     window = MainWindow(ProjectService(PikePdfBackend()))
