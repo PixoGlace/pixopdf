@@ -31,9 +31,11 @@ from pixopdf.commands import (
     RestorePagesCommand,
     RotatePagesCommand,
 )
+from pixopdf.config import APP_NAME, ORGANIZATION
 from pixopdf.constants import SUPPORTED_PDF_FILTER
 from pixopdf.domain.document import SourceDocument
 from pixopdf.domain.project import PdfProject
+from pixopdf.language_config import DEFAULT_LANGUAGE, LANGUAGES, is_rtl, translate
 from pixopdf.pdf.pdfium_renderer import PdfiumRenderer
 from pixopdf.services.project_service import ProjectService
 from pixopdf.services.split_service import SplitStrategy, build_split_groups
@@ -50,18 +52,25 @@ class MainWindow(QMainWindow):
         self.service = service
         self.project = PdfProject()
         self.commands = CommandStack()
-        self.settings = QSettings("PixoGlace", "PixoPDF")
+        self.settings = QSettings(ORGANIZATION, APP_NAME)
         self.theme = self._saved_theme()
+        self.language = self._saved_language()
         self.active_mode = self._saved_mode()
         self._active_task: OperationTask | None = None
         app = QApplication.instance()
         if isinstance(app, QApplication):
             apply_theme(app, self.theme)
+            app.setLayoutDirection(
+                Qt.LayoutDirection.RightToLeft
+                if is_rtl(self.language)
+                else Qt.LayoutDirection.LeftToRight
+            )
         self.setAcceptDrops(True)
         self.setMinimumSize(980, 640)
         saved_size = self.settings.value("window/size")
         self.resize(saved_size if isinstance(saved_size, QSize) else QSize(1280, 780))
         self.workspace = WorkspacePage(PdfiumRenderer())
+        self.workspace.set_language(self.language)
         self._restore_workspace_preferences()
         self.setCentralWidget(self.workspace)
         self._connect_signals()
@@ -110,6 +119,30 @@ class MainWindow(QMainWindow):
         except ValueError:
             return Theme.DARK
 
+    def _saved_language(self) -> str:
+        language = str(self.settings.value("language", DEFAULT_LANGUAGE))
+        if language in LANGUAGES:
+            return language
+        self.settings.setValue("language", DEFAULT_LANGUAGE)
+        return DEFAULT_LANGUAGE
+
+    def t(self, key: str, **values: object) -> str:
+        return translate(self.language, key, **values)
+
+    def set_language(self, language: str) -> None:
+        selected = language if language in LANGUAGES else DEFAULT_LANGUAGE
+        self.language = selected
+        self.settings.setValue("language", selected)
+        app = QApplication.instance()
+        if isinstance(app, QApplication):
+            app.setLayoutDirection(
+                Qt.LayoutDirection.RightToLeft
+                if is_rtl(selected)
+                else Qt.LayoutDirection.LeftToRight
+            )
+        self.workspace.set_language(selected)
+        self._update_window_title()
+
     def _saved_mode(self) -> WorkspaceMode:
         value = str(self.settings.value("workflow/mode", WorkspaceMode.ORGANIZE.value))
         try:
@@ -135,6 +168,7 @@ class MainWindow(QMainWindow):
         self.workspace.undo_requested.connect(self.undo)
         self.workspace.redo_requested.connect(self.redo)
         self.workspace.theme_requested.connect(self.toggle_theme)
+        self.workspace.language_requested.connect(self.set_language)
         self.workspace.mode_requested.connect(self.activate_mode)
         self.commands.subscribe(self.refresh)
 
@@ -176,7 +210,12 @@ class MainWindow(QMainWindow):
         }
         selected = legacy_modes.get(tool_name, WorkspaceMode.ORGANIZE)
         if not MODE_SPECS[selected].is_selectable:
-            self.workspace.show_message(f"{MODE_SPECS[selected].label} sera bientôt disponible")
+            self.workspace.show_message(
+                self.t(
+                    "feature_unavailable",
+                    feature=self.t(f"mode_{selected.value}_label"),
+                )
+            )
             return
         self.activate_mode(selected)
         if not (self.project.pages or self.project.documents):
@@ -217,7 +256,7 @@ class MainWindow(QMainWindow):
             return
         names, _ = QFileDialog.getOpenFileNames(
             self,
-            "Ouvrir des PDF",
+            self.t("open_pdf_dialog"),
             str(self.settings.value("files/last_directory", "")),
             SUPPORTED_PDF_FILTER,
         )
@@ -229,18 +268,18 @@ class MainWindow(QMainWindow):
         if not paths or self._active_task is not None:
             return
         self.settings.setValue("files/last_directory", str(paths[0].parent))
-        self.workspace.show_message(f"Lecture de {len(paths)} fichier(s)…")
+        self.workspace.show_message(self.t("reading_files", count=len(paths)))
         self._start_operation(
             lambda: self.service.inspect_files(paths),
             self._finish_import,
-            "Import impossible",
+            self.t("import_error_title"),
         )
 
     def _finish_import(self, result: object) -> None:
         if not isinstance(result, list) or not all(
             isinstance(document, SourceDocument) for document in result
         ):
-            raise TypeError("Résultat d’import inattendu")
+            raise TypeError(self.t("import_unexpected"))
         documents: list[SourceDocument] = result
         if self.workspace.is_home and not self.project.documents and not self.project.pages:
             self.commands = CommandStack()
@@ -251,7 +290,11 @@ class MainWindow(QMainWindow):
         self.refresh()
         page_count = sum(document.page_count for document in documents)
         self.workspace.show_message(
-            f"{len(documents)} document(s) ajouté(s) • {page_count} page(s)"
+            self.t(
+                "documents_added",
+                documents=len(documents),
+                pages=page_count,
+            )
         )
 
     def delete_pages(self, indices: list[int]) -> None:
@@ -265,8 +308,7 @@ class MainWindow(QMainWindow):
             self.commands.execute(DeletePagesCommand(self.project, active_indices))
             self.workspace.select_page_ids(selected_ids)
             self.workspace.show_message(
-                f"{len(active_indices)} page(s) marquée(s) supprimée(s) • "
-                "elles ne seront pas exportées"
+                self.t("pages_marked_deleted", count=len(active_indices))
             )
 
     def restore_pages(self, indices: list[int]) -> None:
@@ -279,7 +321,9 @@ class MainWindow(QMainWindow):
             selected_ids = [self.project.pages[index].id for index in deleted_indices]
             self.commands.execute(RestorePagesCommand(self.project, deleted_indices))
             self.workspace.select_page_ids(selected_ids)
-            self.workspace.show_message(f"{len(deleted_indices)} page(s) restaurée(s)")
+            self.workspace.show_message(
+                self.t("pages_restored", count=len(deleted_indices))
+            )
 
     def remove_document(self, document_id: str) -> None:
         if self._active_task is not None:
@@ -294,8 +338,11 @@ class MainWindow(QMainWindow):
         command = RemoveDocumentCommand(self.project, identifier)
         self.commands.execute(command)
         self.workspace.show_message(
-            f"{document.display_name} retiré du workspace • "
-            f"{command.removed_page_count} page(s) retirée(s) • Ctrl+Z pour annuler"
+            self.t(
+                "document_removed",
+                name=document.display_name,
+                pages=command.removed_page_count,
+            )
         )
 
     def clear_workspace(self) -> None:
@@ -304,8 +351,11 @@ class MainWindow(QMainWindow):
         command = ClearWorkspaceCommand(self.project)
         self.commands.execute(command)
         self.workspace.show_message(
-            f"Workspace vidé • {command.removed_document_count} document(s) et "
-            f"{command.removed_page_count} page(s) retirés • Ctrl+Z pour annuler"
+            self.t(
+                "workspace_cleared",
+                documents=command.removed_document_count,
+                pages=command.removed_page_count,
+            )
         )
 
     def duplicate_pages(self, indices: list[int]) -> None:
@@ -318,7 +368,9 @@ class MainWindow(QMainWindow):
             command = DuplicatePagesCommand(self.project, active_indices)
             self.commands.execute(command)
             self.workspace.select_page_ids(command.inserted_page_ids)
-            self.workspace.show_message(f"{len(active_indices)} page(s) dupliquée(s)")
+            self.workspace.show_message(
+                self.t("pages_duplicated", count=len(active_indices))
+            )
 
     def insert_blank_page(self, index: int, width: float, height: float) -> None:
         if self._active_task is not None:
@@ -327,7 +379,9 @@ class MainWindow(QMainWindow):
         self.commands.execute(command)
         self.workspace.select_page_ids(command.inserted_page_ids)
         format_name = self._blank_format_name(width, height)
-        self.workspace.show_message(f"Page blanche {format_name} ajoutée • Ctrl+Z pour annuler")
+        self.workspace.show_message(
+            self.t("blank_page_added", format=format_name)
+        )
 
     @staticmethod
     def _blank_format_name(width: float, height: float) -> str:
@@ -345,9 +399,13 @@ class MainWindow(QMainWindow):
         ]
         if active_indices and self._active_task is None:
             self.commands.execute(RotatePagesCommand(self.project, active_indices, degrees))
-            direction = "gauche" if degrees < 0 else "droite"
+            direction = self.t("left") if degrees < 0 else self.t("right")
             self.workspace.show_message(
-                f"{len(active_indices)} page(s) tournée(s) vers la {direction}"
+                self.t(
+                    "pages_rotated",
+                    count=len(active_indices),
+                    direction=direction,
+                )
             )
 
     def reorder_pages(self, ordered_values: list[object]) -> None:
@@ -358,7 +416,7 @@ class MainWindow(QMainWindow):
             ordered_ids = [UUID(str(value)) for value in ordered_values]
         except ValueError:
             self.refresh()
-            self.workspace.show_message("La réorganisation a échoué", error=True)
+            self.workspace.show_message(self.t("reorder_failed"), error=True)
             return
         current_ids = [page.id for page in self.project.pages]
         if ordered_ids == current_ids:
@@ -382,7 +440,7 @@ class MainWindow(QMainWindow):
             self.refresh()
             self.workspace.show_message(str(exc), error=True)
             return
-        self.workspace.show_message("Ordre des pages mis à jour • Ctrl+Z pour annuler")
+        self.workspace.show_message(self.t("page_order_updated"))
 
     def split_document(
         self,
@@ -405,7 +463,7 @@ class MainWindow(QMainWindow):
             return
         directory = QFileDialog.getExistingDirectory(
             self,
-            "Choisir le dossier des PDF divisés",
+            self.t("split_folder_dialog"),
             str(self.settings.value("files/last_directory", "")),
         )
         if not directory:
@@ -423,11 +481,11 @@ class MainWindow(QMainWindow):
             pages=list(self.project.active_pages),
             modified=False,
         )
-        self.workspace.show_message(f"Division en {len(groups)} fichier(s) PDF en cours…")
+        self.workspace.show_message(self.t("split_in_progress", count=len(groups)))
         self._start_operation(
             lambda: self.service.split(snapshot, destination, groups, base_name),
             self._finish_split,
-            "Division impossible",
+            self.t("split_error_title"),
         )
 
     def execute_primary_action(self) -> None:
@@ -443,18 +501,17 @@ class MainWindow(QMainWindow):
             or not result
             or not all(isinstance(path, Path) for path in result)
         ):
-            raise TypeError("Résultat de division inattendu")
+            raise TypeError(self.t("split_unexpected"))
         destination = result[0].parent
-        self.workspace.show_message(f"{len(result)} PDF créé(s) dans {destination}")
+        self.workspace.show_message(
+            self.t("split_created", count=len(result), destination=destination)
+        )
 
     def export(self) -> None:
         if not self.project.active_page_count or self._active_task is not None:
             return
         if self.active_mode is WorkspaceMode.MERGE and len(self.project.documents) < 2:
-            self.workspace.show_message(
-                "Ajoutez au moins deux PDF pour lancer la fusion.",
-                error=True,
-            )
+            self.workspace.show_message(self.t("merge_need_two"), error=True)
             return
         if not self.project.documents:
             default_name = "page-blanche.pdf"
@@ -464,7 +521,7 @@ class MainWindow(QMainWindow):
             default_name = "document-modifie.pdf"
         name, _ = QFileDialog.getSaveFileName(
             self,
-            "Exporter le PDF",
+            self.t("export_pdf_dialog"),
             str(Path(str(self.settings.value("files/last_directory", ""))) / default_name),
             SUPPORTED_PDF_FILTER,
         )
@@ -477,8 +534,8 @@ class MainWindow(QMainWindow):
         if destination.resolve() in source_paths:
             QMessageBox.warning(
                 self,
-                "Destination invalide",
-                "Choisissez un nouveau fichier : PixoPDF ne remplace jamais un document source.",
+                self.t("invalid_destination_title"),
+                self.t("invalid_destination_message"),
             )
             return
         snapshot = PdfProject(
@@ -486,11 +543,11 @@ class MainWindow(QMainWindow):
             pages=list(self.project.active_pages),
             modified=False,
         )
-        self.workspace.show_message("Export du PDF en cours…")
+        self.workspace.show_message(self.t("export_in_progress"))
         self._start_operation(
             lambda: self._export_snapshot(snapshot, destination),
             self._finish_export,
-            "Export impossible",
+            self.t("export_error_title"),
         )
 
     def _export_snapshot(self, project: PdfProject, destination: Path) -> Path:
@@ -499,11 +556,11 @@ class MainWindow(QMainWindow):
 
     def _finish_export(self, result: object) -> None:
         if not isinstance(result, Path):
-            raise TypeError("Résultat d’export inattendu")
+            raise TypeError(self.t("export_unexpected"))
         self.project.modified = False
         self.commands.mark_clean()
         self.refresh()
-        self.workspace.show_message(f"PDF exporté dans {result}")
+        self.workspace.show_message(self.t("export_done", destination=result))
 
     def _start_operation(
         self,
@@ -560,8 +617,11 @@ class MainWindow(QMainWindow):
         self.project.modified = not self.commands.is_clean
         self.workspace.refresh(self.project)
         self.workspace.set_history_state(self.commands.can_undo, self.commands.can_redo)
+        self._update_window_title()
+
+    def _update_window_title(self) -> None:
         marker = "*" if self.project.modified else ""
-        self.setWindowTitle(f"Projet sans titre{marker} — PixoPDF")
+        self.setWindowTitle(f"{self.t('untitled_project')}{marker} — {APP_NAME}")
 
     def toggle_theme(self) -> None:
         self.theme = Theme.LIGHT if self.theme == Theme.DARK else Theme.DARK
@@ -592,20 +652,24 @@ class MainWindow(QMainWindow):
         if self._active_task is not None:
             QMessageBox.information(
                 self,
-                "Opération en cours",
-                "Attendez la fin de l’opération avant de quitter PixoPDF.",
+                self.t("operation_in_progress_title"),
+                self.t("operation_in_progress_message"),
             )
             event.ignore()
             return
         if self.project.modified and (self.project.documents or self.project.pages):
             message = QMessageBox(self)
             message.setIcon(QMessageBox.Icon.Warning)
-            message.setWindowTitle("Projet non exporté")
-            message.setText("Des modifications n’ont pas été exportées.")
-            message.setInformativeText("Voulez-vous exporter avant de quitter ?")
-            export_button = message.addButton("Exporter…", QMessageBox.ButtonRole.AcceptRole)
+            message.setWindowTitle(self.t("unexported_project_title"))
+            message.setText(self.t("unexported_project_text"))
+            message.setInformativeText(self.t("unexported_project_question"))
+            export_button = message.addButton(
+                self.t("export_ellipsis"),
+                QMessageBox.ButtonRole.AcceptRole,
+            )
             discard_button = message.addButton(
-                "Quitter sans exporter", QMessageBox.ButtonRole.DestructiveRole
+                self.t("quit_without_export"),
+                QMessageBox.ButtonRole.DestructiveRole,
             )
             message.addButton(QMessageBox.StandardButton.Cancel)
             message.exec()

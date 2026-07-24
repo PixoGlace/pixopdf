@@ -32,6 +32,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QButtonGroup,
+    QComboBox,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -58,6 +59,7 @@ from PySide6.QtWidgets import (
 from pixopdf.assets import asset_path
 from pixopdf.domain.page import PageChange, PageReference
 from pixopdf.domain.project import PdfProject
+from pixopdf.language_config import DEFAULT_LANGUAGE, LANGUAGES, is_rtl, translate
 from pixopdf.pdf.renderer import PdfRenderer
 from pixopdf.services.split_service import SplitStrategy, build_split_groups
 from pixopdf.ui.themes.theme_manager import Theme
@@ -88,16 +90,16 @@ A4_LANDSCAPE = (841.89, 595.28)
 A5_PORTRAIT = (419.53, 595.28)
 
 
-def page_change_label(changes: PageChange) -> str:
+def page_change_label(changes: PageChange, language: str = DEFAULT_LANGUAGE) -> str:
     if changes & PageChange.DELETED:
-        return "Supprimée"
+        return translate(language, "page_change_deleted")
     labels: list[str] = []
     if changes & PageChange.ADDED:
-        labels.append("Ajoutée")
+        labels.append(translate(language, "page_change_added"))
     if changes & PageChange.MOVED:
-        labels.append("déplacée")
+        labels.append(translate(language, "page_change_moved"))
     if changes & PageChange.MODIFIED:
-        labels.append("modifiée")
+        labels.append(translate(language, "page_change_modified"))
     return " + ".join(labels).capitalize()
 
 
@@ -113,6 +115,10 @@ class PageItemDelegate(QStyledItemDelegate):
         "#84CC16",
     )
 
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.language = DEFAULT_LANGUAGE
+
     def paint(
         self,
         painter: QPainter,
@@ -125,7 +131,7 @@ class PageItemDelegate(QStyledItemDelegate):
             self._paint_split_preview(painter, option.rect, tuple(split_groups))
 
         changes = PageChange(int(index.data(PAGE_CHANGE_ROLE) or 0))
-        label = page_change_label(changes)
+        label = page_change_label(changes, self.language)
         if not label:
             return
 
@@ -198,11 +204,16 @@ class PageItemDelegate(QStyledItemDelegate):
             self.SPLIT_COLORS[(groups[0] - 1) % len(self.SPLIT_COLORS)] if included else "#64748B"
         )
         label = (
-            f"PDF {groups[0]}"
+            translate(self.language, "generated_pdf", number=groups[0])
             if len(groups) == 1
-            else f"PDF {groups[0]} +{len(groups) - 1}"
+            else translate(
+                self.language,
+                "generated_pdf_more",
+                number=groups[0],
+                count=len(groups) - 1,
+            )
             if groups
-            else "Hors sortie"
+            else translate(self.language, "outside_output")
         )
 
         painter.save()
@@ -478,11 +489,14 @@ class WorkspacePage(QWidget):
     undo_requested = Signal()
     redo_requested = Signal()
     theme_requested = Signal()
+    language_requested = Signal(str)
     mode_requested = Signal(str)
 
     def __init__(self, renderer: PdfRenderer) -> None:
         super().__init__()
         self.renderer = renderer
+        self.language = DEFAULT_LANGUAGE
+        self._translated_once = False
         self.current_mode = WorkspaceMode.ORGANIZE
         self._theme = Theme.DARK
         self._document_count = 0
@@ -502,6 +516,7 @@ class WorkspacePage(QWidget):
         self._split_output_count = 0
         self._split_plan_valid = False
         self._split_groups: list[list[int]] | None = None
+        self._project: PdfProject | None = None
         self._home_active = True
         self._message_token = 0
         self._base_status = "0 page au total     0 document     Traitement local"
@@ -631,6 +646,19 @@ class WorkspacePage(QWidget):
         )
         self.theme_button.setAccessibleName("Changer de thème")
         command_layout.addWidget(self.theme_button)
+        self.language_combo = QComboBox()
+        self.language_combo.setObjectName("languageCombo")
+        self.language_combo.setAccessibleName("Langue de l’interface")
+        self.language_combo.setToolTip("Changer la langue de l’interface")
+        self.language_combo.setMinimumContentsLength(8)
+        self.language_combo.setMaximumWidth(126)
+        for language_code, metadata in LANGUAGES.items():
+            self.language_combo.addItem(str(metadata["name"]), language_code)
+        current_language_index = self.language_combo.findData(self.language)
+        if current_language_index >= 0:
+            self.language_combo.setCurrentIndex(current_language_index)
+        self.language_combo.currentIndexChanged.connect(self._request_language)
+        command_layout.addWidget(self.language_combo)
         layout.addWidget(command_bar)
 
         mode_bar = QFrame()
@@ -713,37 +741,37 @@ class WorkspacePage(QWidget):
         icon.setAlignment(Qt.AlignmentFlag.AlignCenter)
         drop_layout.addWidget(icon)
 
-        title = QLabel("Bienvenue dans PixoPDF")
-        title.setObjectName("homeTitle")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        drop_layout.addWidget(title)
+        self.home_title = QLabel("Bienvenue dans PixoPDF")
+        self.home_title.setObjectName("homeTitle")
+        self.home_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        drop_layout.addWidget(self.home_title)
 
-        subtitle = QLabel(
+        self.home_description = QLabel(
             "Déposez vos fichiers PDF ici pour commencer à les organiser, fusionner ou diviser."
         )
-        subtitle.setObjectName("homeDescription")
-        subtitle.setWordWrap(True)
-        subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        drop_layout.addWidget(subtitle)
+        self.home_description.setObjectName("homeDescription")
+        self.home_description.setWordWrap(True)
+        self.home_description.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        drop_layout.addWidget(self.home_description)
 
-        open_button = self._button(
+        self.home_open_button = self._button(
             "＋  Ouvrir des fichiers PDF",
             self.add_requested.emit,
             "primaryButton",
             "Choisir un ou plusieurs fichiers PDF",
         )
-        open_button.setAccessibleName("Ouvrir des fichiers PDF")
-        drop_layout.addWidget(open_button, alignment=Qt.AlignmentFlag.AlignCenter)
+        self.home_open_button.setAccessibleName("Ouvrir des fichiers PDF")
+        drop_layout.addWidget(self.home_open_button, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        drop_prompt = QLabel("ou glissez-déposez vos PDF dans cette zone")
-        drop_prompt.setObjectName("dropPrompt")
-        drop_prompt.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        drop_layout.addWidget(drop_prompt)
+        self.home_drop_prompt = QLabel("ou glissez-déposez vos PDF dans cette zone")
+        self.home_drop_prompt.setObjectName("dropPrompt")
+        self.home_drop_prompt.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        drop_layout.addWidget(self.home_drop_prompt)
 
-        privacy = QLabel("Traitement 100 % local • aucun fichier envoyé en ligne")
-        privacy.setObjectName("dropPrivacy")
-        privacy.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        drop_layout.addWidget(privacy)
+        self.home_privacy = QLabel("Traitement 100 % local • aucun fichier envoyé en ligne")
+        self.home_privacy.setObjectName("dropPrivacy")
+        self.home_privacy.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        drop_layout.addWidget(self.home_privacy)
 
         self.home_drop_zone.files_dropped.connect(self.files_dropped.emit)
         layout.addWidget(
@@ -763,13 +791,15 @@ class WorkspacePage(QWidget):
         layout.setContentsMargins(12, 14, 12, 12)
         layout.setSpacing(10)
 
-        title = QLabel("Fichiers ouverts")
-        title.setObjectName("sectionTitle")
-        layout.addWidget(title)
-        description = QLabel("Les fichiers sources restent toujours inchangés.")
-        description.setObjectName("optionsDescription")
-        description.setWordWrap(True)
-        layout.addWidget(description)
+        self.documents_panel_title = QLabel("Fichiers ouverts")
+        self.documents_panel_title.setObjectName("sectionTitle")
+        layout.addWidget(self.documents_panel_title)
+        self.documents_panel_description = QLabel(
+            "Les fichiers sources restent toujours inchangés."
+        )
+        self.documents_panel_description.setObjectName("optionsDescription")
+        self.documents_panel_description.setWordWrap(True)
+        layout.addWidget(self.documents_panel_description)
 
         (
             self.workspace_documents_card,
@@ -833,15 +863,17 @@ class WorkspacePage(QWidget):
         self.empty_detail.setObjectName("muted")
         self.empty_detail.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.empty_detail)
-        add_button = self._button("⊞  Choisir des fichiers PDF", self.add_requested.emit)
-        add_button.setObjectName("primaryButton")
-        layout.addWidget(add_button, alignment=Qt.AlignmentFlag.AlignCenter)
-        blank_button = self._button(
+        self.empty_add_button = self._button(
+            "⊞  Choisir des fichiers PDF", self.add_requested.emit
+        )
+        self.empty_add_button.setObjectName("primaryButton")
+        layout.addWidget(self.empty_add_button, alignment=Qt.AlignmentFlag.AlignCenter)
+        self.empty_blank_button = self._button(
             "＋  Créer une page blanche A4",
             self.request_default_blank_page,
             tooltip="Commencer avec une page blanche A4",
         )
-        layout.addWidget(blank_button, alignment=Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.empty_blank_button, alignment=Qt.AlignmentFlag.AlignCenter)
         return empty
 
     def _create_pages_panel(self) -> QWidget:
@@ -871,7 +903,8 @@ class WorkspacePage(QWidget):
         self.empty_state = self._create_empty_state()
         self.pages = PageListWidget()
         self.pages.setAccessibleName("Pages du projet")
-        self.pages.setItemDelegate(PageItemDelegate(self.pages))
+        self.page_delegate = PageItemDelegate(self.pages)
+        self.pages.setItemDelegate(self.page_delegate)
         self.pages.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
         self.pages.setViewMode(QListWidget.ViewMode.IconMode)
         self.pages.setResizeMode(QListWidget.ResizeMode.Adjust)
@@ -1137,13 +1170,15 @@ class WorkspacePage(QWidget):
         search_banner_layout = QVBoxLayout(self.organize_search_banner)
         search_banner_layout.setContentsMargins(10, 9, 10, 9)
         search_banner_layout.setSpacing(4)
-        search_banner_title = QLabel("Réorganisation suspendue")
-        search_banner_title.setObjectName("organizeSearchTitle")
-        search_banner_layout.addWidget(search_banner_title)
-        search_banner_detail = QLabel("Effacez la recherche pour déplacer de nouveau les pages.")
-        search_banner_detail.setObjectName("organizeSearchDetail")
-        search_banner_detail.setWordWrap(True)
-        search_banner_layout.addWidget(search_banner_detail)
+        self.organize_search_title = QLabel("Réorganisation suspendue")
+        self.organize_search_title.setObjectName("organizeSearchTitle")
+        search_banner_layout.addWidget(self.organize_search_title)
+        self.organize_search_detail = QLabel(
+            "Effacez la recherche pour déplacer de nouveau les pages."
+        )
+        self.organize_search_detail.setObjectName("organizeSearchDetail")
+        self.organize_search_detail.setWordWrap(True)
+        search_banner_layout.addWidget(self.organize_search_detail)
         self.clear_search_button = self._button(
             "Effacer la recherche",
             self.search.clear,
@@ -1162,6 +1197,7 @@ class WorkspacePage(QWidget):
         body, body_layout = self._options_body()
 
         self.move_group, move_layout = self._organize_card("Déplacer")
+        self.move_group_title = self.move_group.findChild(QLabel, "organizeGroupTitle")
         self.move_position_label = QLabel("Sélectionnez des pages à déplacer.")
         self.move_position_label.setObjectName("organizeActionStatus")
         move_layout.addWidget(self.move_position_label)
@@ -1205,6 +1241,7 @@ class WorkspacePage(QWidget):
         body_layout.addWidget(self.move_group)
 
         self.modify_group, modify_layout = self._organize_card("Modifier")
+        self.modify_group_title = self.modify_group.findChild(QLabel, "organizeGroupTitle")
         rotation_row = QHBoxLayout()
         rotation_row.setSpacing(6)
         self.rotate_left_button = self._button(
@@ -1232,6 +1269,7 @@ class WorkspacePage(QWidget):
         body_layout.addWidget(self.modify_group)
 
         self.insert_group, insert_layout = self._organize_card("Insérer une page")
+        self.insert_group_title = self.insert_group.findChild(QLabel, "organizeGroupTitle")
         self.blank_page_button = QToolButton()
         self.blank_page_button.setObjectName("organizeInsertButton")
         self.blank_page_button.setText("＋  Page blanche")
@@ -1331,7 +1369,8 @@ class WorkspacePage(QWidget):
 
         merge_add = self.workspace_add_documents_button
 
-        body_layout.addWidget(self._option_heading("ORDRE ET SORTIE"))
+        self.merge_order_heading = self._option_heading("ORDRE ET SORTIE")
+        body_layout.addWidget(self.merge_order_heading)
         self.merge_order_hint = QLabel(
             "L’ordre visible des miniatures sera l’ordre du PDF final. "
             "Faites glisser les pages pour l’ajuster."
@@ -1340,13 +1379,13 @@ class WorkspacePage(QWidget):
         self.merge_order_hint.setWordWrap(True)
         body_layout.addWidget(self.merge_order_hint)
 
-        output_hint = QLabel(
+        self.merge_output_hint = QLabel(
             "Quand deux documents sont prêts, utilisez « Fusionner et exporter » "
             "dans la barre supérieure. Les sources ne sont jamais remplacées."
         )
-        output_hint.setObjectName("muted")
-        output_hint.setWordWrap(True)
-        body_layout.addWidget(output_hint)
+        self.merge_output_hint.setObjectName("muted")
+        self.merge_output_hint.setWordWrap(True)
+        body_layout.addWidget(self.merge_output_hint)
         body_layout.addStretch()
         self.merge_export_button = self.export_button
         self.mode_specific_actions[WorkspaceMode.MERGE] = [
@@ -1368,9 +1407,9 @@ class WorkspacePage(QWidget):
         self.split_summary_label.setWordWrap(True)
         body_layout.addWidget(self.split_summary_label)
 
-        method_heading = QLabel("Choisissez comment créer les nouveaux PDF")
-        method_heading.setObjectName("optionHeading")
-        body_layout.addWidget(method_heading)
+        self.split_method_heading = QLabel("Choisissez comment créer les nouveaux PDF")
+        self.split_method_heading.setObjectName("optionHeading")
+        body_layout.addWidget(self.split_method_heading)
 
         self.split_strategy_group = QButtonGroup(page)
         self.split_each_radio = QRadioButton("Un PDF par page")
@@ -1428,12 +1467,12 @@ class WorkspacePage(QWidget):
         self.split_validation_label.setWordWrap(True)
         body_layout.addWidget(self.split_validation_label)
 
-        split_hint = QLabel(
+        self.split_hint = QLabel(
             "Pages supprimées ignorées • lancez la division avec le bouton principal en haut."
         )
-        split_hint.setObjectName("organizeHint")
-        split_hint.setWordWrap(True)
-        body_layout.addWidget(split_hint)
+        self.split_hint.setObjectName("organizeHint")
+        self.split_hint.setWordWrap(True)
+        body_layout.addWidget(self.split_hint)
         body_layout.addStretch()
         self.mode_specific_actions[WorkspaceMode.SPLIT] = [
             self.split_clear_workspace_button,
@@ -1574,14 +1613,12 @@ class WorkspacePage(QWidget):
         self._split_plan_valid = False
         self._split_groups = None
         if self._active_page_count < 1:
-            self.split_summary_label.setText("Ajoutez un PDF pour préparer la division.")
-            self.split_validation_label.setText("Aucune page active à diviser.")
+            self.split_summary_label.setText(self.t("split_add_pdf"))
+            self.split_validation_label.setText(self.t("split_no_active_page"))
             self.split_validation_label.setProperty("feedback", "error")
         else:
             self.split_summary_label.setText(
-                f"{self._active_page_count} page"
-                f"{'s' if self._active_page_count > 1 else ''} active"
-                f"{'s' if self._active_page_count > 1 else ''}"
+                self.tc("split_active_pages", self._active_page_count)
             )
             try:
                 groups = build_split_groups(
@@ -1597,10 +1634,8 @@ class WorkspacePage(QWidget):
                 self._split_output_count = len(groups)
                 self._split_plan_valid = True
                 self._split_groups = groups
-                result_wording = "seront créés" if len(groups) > 1 else "sera créé"
                 self.split_validation_label.setText(
-                    f"Aperçu prêt • {len(groups)} fichier"
-                    f"{'s' if len(groups) > 1 else ''} PDF {result_wording}."
+                    self.tc("split_preview_ready", len(groups))
                 )
                 self.split_validation_label.setProperty("feedback", "success")
         self._apply_split_preview(
@@ -1625,6 +1660,155 @@ class WorkspacePage(QWidget):
             return
         self.set_mode(mode)
         self.mode_requested.emit(mode.value)
+
+    def t(self, key: str, **values: object) -> str:
+        return translate(self.language, key, **values)
+
+    def tc(self, key: str, count: int, **values: object) -> str:
+        form = "one" if count == 1 else "other"
+        return self.t(f"{key}_{form}", count=count, **values)
+
+    def _request_language(self, _index: int) -> None:
+        language = str(self.language_combo.currentData())
+        if language not in LANGUAGES:
+            return
+        self.set_language(language)
+        self.language_requested.emit(language)
+
+    def set_language(self, language: str) -> None:
+        selected = language if language in LANGUAGES else DEFAULT_LANGUAGE
+        if selected == self.language and self._translated_once:
+            return
+        language_changed = selected != self.language
+        self.language = selected
+        if language_changed:
+            self._blank_thumbnails.clear()
+        direction = (
+            Qt.LayoutDirection.RightToLeft
+            if is_rtl(selected)
+            else Qt.LayoutDirection.LeftToRight
+        )
+        self.setLayoutDirection(direction)
+        # A PDF keeps its logical page order regardless of the interface language.
+        self.pages.setLayoutDirection(Qt.LayoutDirection.LeftToRight)
+        self.page_delegate.language = selected
+        combo_index = self.language_combo.findData(selected)
+        if combo_index >= 0 and combo_index != self.language_combo.currentIndex():
+            blocked = self.language_combo.blockSignals(True)
+            self.language_combo.setCurrentIndex(combo_index)
+            self.language_combo.blockSignals(blocked)
+        self._translate_ui()
+        self._translated_once = True
+        if self._project is not None:
+            self.refresh(self._project)
+
+    def _translate_ui(self) -> None:
+        self.home_button.setText(f"⌂  {self.t('home')}")
+        self.home_button.setAccessibleName(self.t("home"))
+        self.home_button.setToolTip(self.t("home_tooltip"))
+        self.undo_button.setText(self.t("undo"))
+        self.undo_button.setToolTip(self.t("undo_tooltip"))
+        self.redo_button.setText(self.t("redo"))
+        self.redo_button.setToolTip(self.t("redo_tooltip"))
+        self.add_files_button.setText(f"＋  {self.t('add_pdfs')}")
+        self.add_files_button.setToolTip(self.t("add_pdfs_tooltip"))
+        self.theme_button.setToolTip(self.t("change_theme"))
+        self.theme_button.setAccessibleName(self.t("change_theme"))
+        self.language_combo.setAccessibleName(self.t("language"))
+        self.language_combo.setToolTip(self.t("language_tooltip"))
+
+        self.home_title.setText(self.t("home_title"))
+        self.home_description.setText(self.t("home_description"))
+        self.home_open_button.setText(f"＋  {self.t('open_pdfs')}")
+        self.home_open_button.setToolTip(self.t("open_pdfs_tooltip"))
+        self.home_open_button.setAccessibleName(self.t("open_pdfs"))
+        self.home_drop_prompt.setText(self.t("drop_prompt"))
+        self.home_privacy.setText(self.t("privacy_local"))
+
+        self.documents_panel.setAccessibleName(self.t("opened_files"))
+        self.documents_panel_title.setText(self.t("opened_files"))
+        self.documents_panel_description.setText(self.t("sources_unchanged"))
+        self.workspace_documents_heading.setText(
+            self.t("documents_count", count=self._document_count)
+        )
+        self.workspace_remove_document_button.setText(self.t("close_pdf"))
+        self.workspace_add_documents_button.setText(f"＋  {self.t('add_pdfs')}")
+        self.close_all_documents_button.setText(f"⌂  {self.t('close_all_files')}")
+        self.close_all_documents_button.setToolTip(self.t("close_all_files_tooltip"))
+
+        self.empty_title.setText(self.t("no_page"))
+        self.empty_add_button.setText(f"⊞  {self.t('choose_pdfs')}")
+        self.empty_blank_button.setText(f"＋  {self.t('create_blank_a4')}")
+        self.search.setPlaceholderText(f"⌕  {self.t('search_page')}")
+        self.selection_label.setText(self.t("no_page_selected"))
+        self.select_all_button.setText(self.t("select_all"))
+        self.split_preview_legend.setText(self.t("split_preview_legend"))
+        self.options_selection_label.setText(self.t("no_page_selected"))
+        self.options_selection_detail.setText(self.t("select_thumbnails_hint"))
+        self.clear_selection_button.setToolTip(self.t("clear_selection"))
+        self.organize_search_title.setText(self.t("reorder_paused"))
+        self.organize_search_detail.setText(self.t("clear_search_to_reorder"))
+        self.clear_search_button.setText(self.t("clear_search"))
+
+        if self.move_group_title is not None:
+            self.move_group_title.setText(self.t("move"))
+        if self.modify_group_title is not None:
+            self.modify_group_title.setText(self.t("modify"))
+        if self.insert_group_title is not None:
+            self.insert_group_title.setText(self.t("insert_page"))
+        self.move_previous_button.setText(f"←  {self.t('move_previous')}")
+        self.move_next_button.setText(f"{self.t('move_next')}  →")
+        self.move_start_button.setText(self.t("move_start"))
+        self.move_end_button.setText(self.t("move_end"))
+        self.rotate_left_button.setText(self.t("rotate_left"))
+        self.rotate_right_button.setText(self.t("rotate_right"))
+        self.duplicate_button.setText(self.t("duplicate_page"))
+        self.blank_page_button.setText(f"＋  {self.t('blank_page')}")
+        self.delete_button.setText(self.t("delete_page"))
+
+        self.merge_order_heading.setText(self.t("merge_order_output"))
+        self.merge_order_hint.setText(self.t("merge_order_hint"))
+        self.merge_output_hint.setText(self.t("merge_output_hint"))
+        self.split_method_heading.setText(self.t("split_choose_method"))
+        self.split_each_radio.setText(self.t("split_each"))
+        self.split_batch_radio.setText(self.t("split_batch"))
+        self.split_ranges_radio.setText(self.t("split_ranges"))
+        self.split_batch_label.setText(self.t("pages_per_file"))
+        self.split_ranges_input.setPlaceholderText(self.t("split_ranges_placeholder"))
+        self.split_hint.setText(
+            self.t("split_ignored_deleted", count=self._deleted_page_count)
+        )
+        split_descriptions = (
+            (self.split_each_card, "split_each_description"),
+            (self.split_batch_card, "split_batch_description"),
+            (self.split_ranges_card, "split_ranges_description"),
+        )
+        for card, key in split_descriptions:
+            label = card.findChild(QLabel, "splitStrategyDescription")
+            if label is not None:
+                label.setText(self.t(key))
+
+        for mode, spec in MODE_SPECS.items():
+            mode_label = self.t(f"mode_{mode.value}_label")
+            description = self.t(f"mode_{mode.value}_home_description")
+            action = self.mode_actions[mode]
+            button = self.mode_buttons[mode]
+            action.setText(mode_label)
+            button.setText(mode_label)
+            tooltip = (
+                description
+                if spec.is_selectable
+                else self.t("coming_soon_tooltip", description=description)
+            )
+            action.setToolTip(tooltip)
+            button.setToolTip(tooltip)
+            button.setAccessibleName(self.t("tool_accessible", tool=mode_label))
+
+        self.set_mode(self.current_mode)
+        self._update_split_controls()
+        self._update_change_legend()
+        self._update_pages_count()
+        self._update_selection()
 
     def _mode_icon(self, spec: ModeSpec) -> QIcon:
         return QIcon(str(asset_path(spec.icon_asset(self._theme.value))))
@@ -1683,17 +1867,24 @@ class WorkspacePage(QWidget):
             return
         self.current_mode = selected
         spec = MODE_SPECS[selected]
+        mode_label = self.t(f"mode_{selected.value}_label")
+        mode_description = self.t(f"mode_{selected.value}_home_description")
         self.options_stack.setCurrentWidget(self.option_panels[selected])
-        self.options_heading.setText(spec.label)
+        self.options_heading.setText(mode_label)
         self.options_icon.setPixmap(self._mode_icon(spec).pixmap(QSize(18, 18)))
         self.options_description.setText(
-            "Réordonner et modifier les pages."
+            self.t("organize_short_description")
             if selected is WorkspaceMode.ORGANIZE
-            else spec.home_description
+            else mode_description
         )
         self.options_description.setVisible(selected is not WorkspaceMode.ORGANIZE)
-        self.options_description.setToolTip(spec.home_description)
-        self.options_status.setText(spec.status_label)
+        self.options_description.setToolTip(mode_description)
+        status_key = {
+            ModeStatus.READY: "available",
+            ModeStatus.PARTIAL: "essential_features",
+            ModeStatus.COMING_SOON: "coming_soon",
+        }[spec.status]
+        self.options_status.setText(self.t(status_key))
         self.options_status.setProperty("status", spec.status.value)
         self.options_status.style().unpolish(self.options_status)
         self.options_status.style().polish(self.options_status)
@@ -1701,10 +1892,10 @@ class WorkspacePage(QWidget):
         self.clear_selection_button.setVisible(
             selected is WorkspaceMode.ORGANIZE and bool(self.pages.selectedItems())
         )
-        self.pages_heading.setText(spec.workspace_title)
-        self.mode_button.setText(spec.label)
+        self.pages_heading.setText(self.t(f"mode_{selected.value}_workspace_title"))
+        self.mode_button.setText(mode_label)
         self.mode_button.setIcon(self._mode_icon(spec))
-        self.mode_button.setToolTip(f"Outil actif : {spec.label}")
+        self.mode_button.setToolTip(self.t("active_tool", tool=mode_label))
         self.mode_buttons[selected].setChecked(True)
         for action_mode, action in self.mode_actions.items():
             action.setChecked(action_mode is selected)
@@ -1716,9 +1907,12 @@ class WorkspacePage(QWidget):
         self._update_export_state()
         self._update_change_legend()
         if not self._page_total:
-            self.empty_title.setText("Aucune page")
+            self.empty_title.setText(self.t("no_page"))
             self.empty_detail.setText(
-                f"{spec.home_title}.\nAjoutez un PDF pour afficher ses vignettes ici."
+                self.t(
+                    "empty_mode_detail",
+                    title=self.t(f"mode_{selected.value}_home_title"),
+                )
             )
 
     def set_theme(self, theme: Theme) -> None:
@@ -1766,10 +1960,16 @@ class WorkspacePage(QWidget):
             page_position = active_position + 1
             active_position += 1
             if item_groups:
-                outputs = ", ".join(f"PDF {number}" for number in item_groups)
-                split_detail = f"Division : page active {page_position} → {outputs}"
+                outputs = ", ".join(
+                    self.t("pdf_number", number=number) for number in item_groups
+                )
+                split_detail = self.t(
+                    "split_page_outputs",
+                    page=page_position,
+                    outputs=outputs,
+                )
             else:
-                split_detail = f"Division : page active {page_position} non incluse dans la sortie"
+                split_detail = self.t("split_page_excluded", page=page_position)
             item.setToolTip(f"{base_tooltip}\n{split_detail}")
 
         self.split_preview_legend.setVisible(preview_active)
@@ -1777,33 +1977,31 @@ class WorkspacePage(QWidget):
 
     def _update_primary_action(self) -> None:
         if self.current_mode is WorkspaceMode.MERGE:
-            text = "Fusionner et exporter"
-            tooltip = "Fusionner les documents puis choisir le PDF de destination"
+            text = self.t("merge_and_export")
+            tooltip = self.t("merge_and_export_tooltip")
         elif self.current_mode is WorkspaceMode.SPLIT:
             text = (
-                f"Diviser en {self._split_output_count} PDF"
+                self.t("split_into_count", count=self._split_output_count)
                 if self._split_output_count
-                else "Diviser"
+                else self.t("mode_split_label")
             )
-            tooltip = "Choisir le dossier qui recevra les PDF divisés"
+            tooltip = self.t("split_export_tooltip")
         else:
-            text = "Exporter"
-            tooltip = "Exporter le PDF (Ctrl+S)"
+            text = self.t("export")
+            tooltip = self.t("export_tooltip")
         self.export_button.setText(text)
         self.export_button.setToolTip(tooltip)
 
     def _update_change_legend(self) -> None:
         organize_mode = self.current_mode is WorkspaceMode.ORGANIZE
         self.moved_pages_legend.setText(
-            f"●  {self._moved_page_count} déplacée{'s' if self._moved_page_count > 1 else ''}"
+            f"●  {self.tc('moved_pages_count', self._moved_page_count)}"
         )
         self.modified_pages_legend.setText(
-            f"●  {self._modified_page_count} modifiée"
-            f"{'s' if self._modified_page_count > 1 else ''} / ajoutée"
-            f"{'s' if self._modified_page_count > 1 else ''}"
+            f"●  {self.tc('modified_pages_count', self._modified_page_count)}"
         )
         self.deleted_pages_legend.setText(
-            f"●  {self._deleted_page_count} supprimée{'s' if self._deleted_page_count > 1 else ''}"
+            f"●  {self.tc('deleted_pages_count', self._deleted_page_count)}"
         )
         self.moved_pages_legend.setVisible(organize_mode and self._moved_page_count > 0)
         self.modified_pages_legend.setVisible(organize_mode and self._modified_page_count > 0)
@@ -1934,14 +2132,21 @@ class WorkspacePage(QWidget):
         if ordered_ids != self.pages._current_ids():
             self.reorder_requested.emit(ordered_ids)
 
-    @staticmethod
-    def _summarize_numbers(numbers: Sequence[int]) -> str:
+    def _summarize_numbers(self, numbers: Sequence[int]) -> str:
         values = [str(number) for number in numbers]
         if len(values) <= 1:
             return "".join(values)
         if len(values) <= 4:
-            return f"{', '.join(values[:-1])} et {values[-1]}"
-        return f"{', '.join(values[:3])} + {len(values) - 3} autres"
+            return self.t(
+                "number_list_last",
+                values=", ".join(values[:-1]),
+                last=values[-1],
+            )
+        return self.t(
+            "number_list_others",
+            values=", ".join(values[:3]),
+            count=len(values) - 3,
+        )
 
     def _update_selection(self) -> None:
         selected_items = sorted(self.pages.selectedItems(), key=self.pages.row)
@@ -1959,9 +2164,9 @@ class WorkspacePage(QWidget):
         can_edit_selection = has_selection and not contains_deleted
         search_active = bool(self.search.text().strip())
         selection_text = (
-            "Aucune page sélectionnée"
+            self.t("no_page_selected")
             if count == 0
-            else f"{count} page{'s' if count > 1 else ''} sélectionnée{'s' if count > 1 else ''}"
+            else self.tc("selected_pages_count", count)
         )
         self.selection_label.setText(selection_text)
         self.options_selection_label.setText(selection_text)
@@ -1986,11 +2191,7 @@ class WorkspacePage(QWidget):
             ]
             if count == 1:
                 changes = PageChange(int(selected_items[0].data(PAGE_CHANGE_ROLE) or 0))
-                details = [
-                    f"Page {stable_numbers[0]}",
-                    f"position {positions[0]} sur {self.pages.count()}",
-                ]
-                if change_label := page_change_label(changes):
+                if change_label := page_change_label(changes, self.language):
                     self.options_selection_change.setText(change_label)
                     self.options_selection_change.setProperty(
                         "changeKind",
@@ -2007,31 +2208,48 @@ class WorkspacePage(QWidget):
                     self.options_selection_change.show()
                 else:
                     self.options_selection_change.hide()
-                self.options_selection_detail.setText(" · ".join(details))
-                self.move_position_label.setText(
-                    f"Position actuelle : {positions[0]} sur {self.pages.count()}"
+                self.options_selection_detail.setText(
+                    self.t(
+                        "selection_single_detail",
+                        page=stable_numbers[0],
+                        position=positions[0],
+                        total=self.pages.count(),
+                    )
                 )
-                self.blank_target_label.setText(f"A4 portrait · après Page {stable_numbers[0]}")
+                self.move_position_label.setText(
+                    self.t(
+                        "current_position",
+                        position=positions[0],
+                        total=self.pages.count(),
+                    )
+                )
+                self.blank_target_label.setText(
+                    self.t("blank_after_page", page=stable_numbers[0])
+                )
             else:
                 self.options_selection_change.hide()
-                detail = f"Pages {self._summarize_numbers(stable_numbers)} · ordre relatif conservé"
+                detail = self.t(
+                    "selection_multiple_detail",
+                    pages=self._summarize_numbers(stable_numbers),
+                )
                 if deleted_selection_count:
-                    detail += (
-                        f" · {deleted_selection_count} supprimée"
-                        f"{'s' if deleted_selection_count > 1 else ''}"
+                    detail += self.t(
+                        "selection_deleted_suffix",
+                        count=deleted_selection_count,
                     )
                 self.options_selection_detail.setText(detail)
                 self.move_position_label.setText(
-                    f"Positions actuelles : {self._summarize_numbers(positions)}"
+                    self.t(
+                        "current_positions",
+                        positions=self._summarize_numbers(positions),
+                    )
                 )
-                self.blank_target_label.setText("A4 portrait · après la sélection")
+                self.blank_target_label.setText(self.t("blank_after_selection"))
         else:
             self.options_selection_change.hide()
-            self.options_selection_detail.setText(
-                "Sélectionnez une ou plusieurs miniatures pour activer les actions."
-            )
-            self.move_position_label.setText("Sélectionnez des pages à déplacer.")
-            self.blank_target_label.setText("A4 portrait · à la fin du document")
+            self.options_selection_detail.setText(self.t("select_thumbnails_hint"))
+            self.move_position_label.setText(self.t("select_pages_to_move"))
+            self.blank_target_label.setText(self.t("blank_at_end"))
 
         selection_state = "selected" if has_selection else "empty"
         self.organize_selection_card.setProperty("selectionState", selection_state)
@@ -2042,20 +2260,24 @@ class WorkspacePage(QWidget):
             button.setEnabled(can_edit_selection)
         self.delete_button.setEnabled(has_selection)
         self.duplicate_button.setText(
-            "Dupliquer la page" if count < 2 else f"Dupliquer {count} pages"
+            self.t("duplicate_page")
+            if count < 2
+            else self.t("duplicate_pages_count", count=count)
         )
         if all_deleted:
             self.delete_button.setText(
-                "Restaurer la page" if count == 1 else f"Restaurer {count} pages"
+                self.t("restore_page")
+                if count == 1
+                else self.t("restore_pages_count", count=count)
             )
             self.delete_button.setProperty("actionKind", "restore")
             self.delete_button.setToolTip("Réintégrer les pages sélectionnées dans l’export")
         else:
             delete_label_count = active_selection_count or count
             self.delete_button.setText(
-                "Supprimer la page"
+                self.t("delete_page")
                 if delete_label_count == 1
-                else f"Supprimer {delete_label_count} pages"
+                else self.t("delete_pages_count", count=delete_label_count)
             )
             self.delete_button.setProperty("actionKind", "delete")
             self.delete_button.setToolTip(
@@ -2120,14 +2342,14 @@ class WorkspacePage(QWidget):
         self.blank_after_action.setEnabled(has_selection)
         self.blank_before_action.setEnabled(has_selection)
         self.blank_landscape_action.setText(
-            "A4 paysage · après la sélection"
+            self.t("blank_landscape_after_selection")
             if has_selection
-            else "A4 paysage · à la fin du document"
+            else self.t("blank_landscape_at_end")
         )
         self.blank_a5_action.setText(
-            "A5 portrait · après la sélection"
+            self.t("blank_a5_after_selection")
             if has_selection
-            else "A5 portrait · à la fin du document"
+            else self.t("blank_a5_at_end")
         )
         reordering_allowed = can_edit_selection and not search_active
         current_ids = self.pages._current_ids()
@@ -2155,19 +2377,15 @@ class WorkspacePage(QWidget):
             button.setToolTip(description)
             button.setAccessibleDescription(description)
         if search_active:
-            self.move_hint.setText("Effacez la recherche pour réorganiser les pages.")
+            self.move_hint.setText(self.t("clear_search_to_reorder_short"))
         elif count > 1:
-            self.move_hint.setText("Ordre conservé · glisser-déposer actif")
+            self.move_hint.setText(self.t("relative_order_drag_active"))
         else:
-            self.move_hint.setText("Indices fixes · glisser-déposer actif")
+            self.move_hint.setText(self.t("stable_indices_drag_active"))
         self.layout_summary_label.setText(
-            (
-                f"La nouvelle page sera ajoutée après "
-                f"{count} page{'s' if count > 1 else ''} sélectionnée"
-                f"{'s' if count > 1 else ''}."
-            )
+            self.t("layout_after_selected", count=count)
             if count
-            else "Sans sélection, la nouvelle page sera ajoutée à la fin."
+            else self.t("layout_no_selection")
         )
 
     def _filter_pages(self, query: str) -> None:
@@ -2185,7 +2403,9 @@ class WorkspacePage(QWidget):
             item.setHidden(not matches)
             visible += int(matches)
         if normalized:
-            self.pages_count.setText(f"{visible} résultat(s) sur {self._page_total} page(s)")
+            self.pages_count.setText(
+                self.t("search_results", visible=visible, total=self._page_total)
+            )
         else:
             self._update_pages_count()
         self._update_selection()
@@ -2289,7 +2509,11 @@ class WorkspacePage(QWidget):
             )
         )
         painter.setPen(QColor("#64748B"))
-        painter.drawText(page_rect, Qt.AlignmentFlag.AlignCenter, "Page\nblanche")
+        painter.drawText(
+            page_rect,
+            Qt.AlignmentFlag.AlignCenter,
+            self.t("blank_page").replace(" ", "\n", 1),
+        )
         painter.end()
         if rotation:
             pixmap = pixmap.transformed(
@@ -2309,7 +2533,7 @@ class WorkspacePage(QWidget):
             return
         pixmap = self._pixmap_from_data(typed_key, data)
         if pixmap is None:
-            self._mark_thumbnail_failed(typed_key, "Image miniature invalide")
+            self._mark_thumbnail_failed(typed_key, self.t("invalid_thumbnail"))
             return
         self._thumbnail_cache[typed_key] = pixmap
         self._thumbnail_cache.move_to_end(typed_key)
@@ -2332,52 +2556,53 @@ class WorkspacePage(QWidget):
 
     def _mark_thumbnail_failed(self, key: ThumbnailKey, error: str) -> None:
         for item in self._items_by_thumbnail.get(key, []):
-            item.setText(f"Aperçu indisponible\n{item.data(DISPLAY_ROLE)}")
-            item.setToolTip(f"Impossible de générer cet aperçu : {error}")
+            item.setText(f"{self.t('preview_unavailable')}\n{item.data(DISPLAY_ROLE)}")
+            item.setToolTip(self.t("preview_generation_failed", error=error))
         self._update_pages_count()
 
     def _update_pages_count(self) -> None:
         if self.search.text().strip():
             return
         pending = len(self._thumbnail_tasks)
-        suffix = f"  •  {pending} aperçu(s) en cours" if pending else ""
-        plural = "s" if self._page_total != 1 else ""
+        suffix = (
+            f"  •  {self.tc('previews_in_progress', pending)}" if pending else ""
+        )
         deleted_suffix = (
-            f"  •  {self._deleted_page_count} supprimée"
-            f"{'s' if self._deleted_page_count > 1 else ''}"
+            f"  •  {self.tc('deleted_pages_count', self._deleted_page_count)}"
             if self._deleted_page_count
             else ""
         )
-        self.pages_count.setText(f"{self._page_total} page{plural}{deleted_suffix}{suffix}")
+        self.pages_count.setText(
+            f"{self.tc('pages_count', self._page_total)}{deleted_suffix}{suffix}"
+        )
 
-    @staticmethod
-    def _page_display_text(page: PageReference, current_position: int) -> str:
-        text = f"Page {page.stable_number}"
+    def _page_display_text(self, page: PageReference, current_position: int) -> str:
+        text = self.t("page_number", number=page.stable_number)
         details: list[str] = []
         if current_position != page.stable_number:
-            details.append(f"pos. {current_position}")
+            details.append(self.t("page_position_short", position=current_position))
         if page.rotation:
             details.append(f"↻ {page.rotation}°")
         return f"{text}  ·  {'  ·  '.join(details)}" if details else text
 
-    @staticmethod
     def _page_tooltip(
+        self,
         page: PageReference,
         current_position: int,
         source_detail: str,
     ) -> str:
         lines = [
-            f"Indice stable : Page {page.stable_number}",
-            f"Position actuelle : {current_position}",
+            self.t("stable_index", number=page.stable_number),
+            self.t("current_position_short", position=current_position),
             source_detail,
         ]
-        change_label = page_change_label(page.changes)
+        change_label = page_change_label(page.changes, self.language)
         if change_label:
-            lines.append(f"État : {change_label}")
+            lines.append(self.t("page_state", state=change_label))
         return "\n".join(lines)
 
-    @staticmethod
     def _populate_documents_list(
+        self,
         documents: QListWidget,
         heading: QLabel,
         remove_button: QPushButton,
@@ -2390,20 +2615,21 @@ class WorkspacePage(QWidget):
         for row, document in enumerate(project.documents.values()):
             item = QListWidgetItem(
                 f"▧  {document.display_name}\n"
-                f"     {document.page_count} page{'s' if document.page_count != 1 else ''}"
+                f"     {self.tc('pages_count', document.page_count)}"
             )
             item.setData(DOCUMENT_ID_ROLE, str(document.id))
-            item.setToolTip(f"{document.path}\nLe fichier original ne sera jamais supprimé.")
+            item.setToolTip(f"{document.path}\n{self.t('original_file_unchanged')}")
             documents.addItem(item)
             if str(document.id) == selected_id:
                 selected_row = row
-        heading.setText(f"Documents ({len(project.documents)})")
+        heading.setText(self.t("documents_count", count=len(project.documents)))
         documents.setVisible(bool(project.documents))
         if selected_row >= 0:
             documents.setCurrentRow(selected_row)
         remove_button.setEnabled(documents.currentItem() is not None)
 
     def refresh(self, project: PdfProject) -> None:
+        self._project = project
         project.ensure_page_numbers()
         selected_ids = self.selected_page_ids()
         scroll_position = self.pages.verticalScrollBar().value()
@@ -2423,7 +2649,7 @@ class WorkspacePage(QWidget):
         for index, page in enumerate(project.pages):
             current_position = index + 1
             display_text = self._page_display_text(page, current_position)
-            item = QListWidgetItem(f"Chargement…\n{display_text}")
+            item = QListWidgetItem(f"{self.t('loading')}\n{display_text}")
             item.setData(PAGE_ID_ROLE, str(page.id))
             item.setData(DISPLAY_ROLE, display_text)
             item.setData(STABLE_NUMBER_ROLE, page.stable_number)
@@ -2435,19 +2661,24 @@ class WorkspacePage(QWidget):
             else:
                 moved_count += int(bool(page.changes & PageChange.MOVED))
                 modified_count += int(bool(page.changes & (PageChange.MODIFIED | PageChange.ADDED)))
-            deleted_search = " supprimée" if page.is_deleted else ""
+            deleted_search = f" {self.t('deleted')}" if page.is_deleted else ""
             if page.is_blank:
                 item.setData(
                     SEARCH_ROLE,
-                    f"page {page.stable_number} position {current_position} "
-                    f"page blanche{deleted_search}",
+                    f"{self.t('page')} {page.stable_number} "
+                    f"{self.t('position')} {current_position} "
+                    f"{self.t('blank_page').lower()}{deleted_search}",
                 )
                 page_size = page.blank_size or A4_PORTRAIT
                 item.setToolTip(
                     self._page_tooltip(
                         page,
                         current_position,
-                        f"Page blanche — {round(page_size[0])} × {round(page_size[1])} points",
+                        self.t(
+                            "blank_page_dimensions",
+                            width=round(page_size[0]),
+                            height=round(page_size[1]),
+                        ),
                     )
                 )
                 item.setIcon(QIcon(self._blank_thumbnail(page_size, page.rotation)))
@@ -2457,21 +2688,23 @@ class WorkspacePage(QWidget):
                 if page.source_page_index is None:
                     item.setData(
                         SEARCH_ROLE,
-                        f"page {page.stable_number} position {current_position} "
-                        f"référence invalide{deleted_search}",
+                        f"{self.t('page')} {page.stable_number} "
+                        f"{self.t('position')} {current_position} "
+                        f"{self.t('invalid_reference')}{deleted_search}",
                     )
                     item.setToolTip(
                         self._page_tooltip(
                             page,
                             current_position,
-                            "Référence de page source invalide",
+                            self.t("invalid_source_reference"),
                         )
                     )
-                    item.setText(f"Aperçu indisponible\n{display_text}")
+                    item.setText(f"{self.t('preview_unavailable')}\n{display_text}")
                 else:
                     search_text = (
-                        f"page {page.stable_number} position {current_position} "
-                        f"{source.display_name} page source "
+                        f"{self.t('page')} {page.stable_number} "
+                        f"{self.t('position')} {current_position} "
+                        f"{source.display_name} {self.t('source_page')} "
                         f"{page.source_page_index + 1}{deleted_search}"
                     )
                     item.setData(SEARCH_ROLE, search_text)
@@ -2479,7 +2712,11 @@ class WorkspacePage(QWidget):
                         self._page_tooltip(
                             page,
                             current_position,
-                            f"{source.display_name} — page source {page.source_page_index + 1}",
+                            self.t(
+                                "source_page_detail",
+                                document=source.display_name,
+                                page=page.source_page_index + 1,
+                            ),
                         )
                     )
                     key: ThumbnailKey = (
@@ -2506,15 +2743,15 @@ class WorkspacePage(QWidget):
         self._deleted_page_count = deleted_count
         self._update_change_legend()
         if project.documents and not project.pages:
-            self.empty_title.setText("Toutes les pages ont été retirées")
-            self.empty_detail.setText(
-                "Utilisez Annuler pour les restaurer, ou ajoutez un autre document PDF."
-            )
+            self.empty_title.setText(self.t("all_pages_removed"))
+            self.empty_detail.setText(self.t("restore_or_add_pdf"))
         else:
-            self.empty_title.setText("Aucune page")
+            self.empty_title.setText(self.t("no_page"))
             self.empty_detail.setText(
-                f"{MODE_SPECS[self.current_mode].home_title}.\n"
-                "Ajoutez un PDF pour afficher ses vignettes ici."
+                self.t(
+                    "empty_mode_detail",
+                    title=self.t(f"mode_{self.current_mode.value}_home_title"),
+                )
             )
         self.page_stack.setCurrentWidget(self.pages if project.pages else self.empty_state)
         self.search.setEnabled(bool(project.pages))
@@ -2522,26 +2759,29 @@ class WorkspacePage(QWidget):
         self._update_split_controls()
         self._update_export_state()
         if len(project.documents) == 0:
-            self.merge_summary_label.setText("Ajoutez au moins deux documents PDF.")
+            self.merge_summary_label.setText(self.t("merge_need_two"))
         elif len(project.documents) == 1:
             self.merge_summary_label.setText(
-                f"1 document • {self._active_page_count} page(s) active(s)\n"
-                "Ajoutez un autre PDF pour créer une fusion."
+                self.t("merge_one_document", pages=self._active_page_count)
             )
         else:
             self.merge_summary_label.setText(
-                f"{len(project.documents)} documents • "
-                f"{self._active_page_count} pages actives\n"
-                "Prêt à fusionner dans l’ordre affiché."
+                self.t(
+                    "merge_ready",
+                    documents=len(project.documents),
+                    pages=self._active_page_count,
+                )
             )
         deleted_status = (
-            f"     {deleted_count} supprimée{'s' if deleted_count > 1 else ''}"
+            f"     {self.tc('deleted_pages_count', deleted_count)}"
             if deleted_count
             else ""
         )
         self._base_status = (
-            f"{self._active_page_count} pages actives{deleted_status}     "
-            f"{len(project.documents)} document(s)     Documents traités localement"
+            f"{self.tc('active_pages_count', self._active_page_count)}"
+            f"{deleted_status}     "
+            f"{self.t('documents_count', count=len(project.documents))}     "
+            f"{self.t('processing_local')}"
         )
         self._message_token += 1
         self._restore_status()

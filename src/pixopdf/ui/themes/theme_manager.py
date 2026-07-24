@@ -161,7 +161,8 @@ QPushButton, QToolButton {
 }
 QPushButton:hover, QToolButton:hover { background: %(hover)s; border-color: #14B8A6; }
 QPushButton:pressed, QToolButton:pressed { background: %(pressed)s; }
-QPushButton:focus, QToolButton:focus, QLineEdit:focus, QSpinBox:focus, QListWidget:focus {
+QPushButton:focus, QToolButton:focus, QComboBox:focus, QLineEdit:focus,
+QSpinBox:focus, QListWidget:focus {
     border: 2px solid #F59E0B;
 }
 QPushButton:disabled, QToolButton:disabled {
@@ -281,6 +282,16 @@ QToolButton#workspaceModeButton {
 QLineEdit {
     background: %(surface_alt)s; border: 1px solid %(border)s; border-radius: 7px;
     padding: 8px 11px; selection-background-color: #14B8A6;
+}
+QComboBox#languageCombo {
+    background: %(surface_alt)s; border: 1px solid %(border)s; border-radius: 7px;
+    padding: 7px 9px; min-width: 84px;
+}
+QComboBox#languageCombo:hover { border-color: #14B8A6; }
+QComboBox#languageCombo::drop-down { border: 0; width: 22px; }
+QComboBox#languageCombo QAbstractItemView {
+    background: %(surface_alt)s; border: 1px solid %(border)s;
+    selection-background-color: %(teal_bg)s; selection-color: %(text)s;
 }
 QSpinBox {
     background: %(surface)s; border: 1px solid %(border)s; border-radius: 7px;
