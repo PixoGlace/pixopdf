@@ -68,9 +68,7 @@ _FR: dict[str, str] = {
     "close_pdf": "Fermer ce PDF",
     "close_all_files": "Fermer tous les fichiers",
     "add_pdf_tooltip": "Ajouter un ou plusieurs fichiers PDF au workspace",
-    "remove_pdf_tooltip": (
-        "Retirer le document du workspace sans supprimer le fichier original"
-    ),
+    "remove_pdf_tooltip": ("Retirer le document du workspace sans supprimer le fichier original"),
     "close_all_tooltip": "Fermer tous les fichiers et créer un workspace vide",
     # Page workspace.
     "no_page": "Aucune page",
@@ -145,15 +143,11 @@ _FR: dict[str, str] = {
     ),
     "mode_compress_workspace_title": "Document à compresser",
     # Organize options.
-    "organize_short_description": (
-        "Réordonnez, tournez, dupliquez, insérez ou retirez des pages."
-    ),
+    "organize_short_description": ("Réordonnez, tournez, dupliquez, insérez ou retirez des pages."),
     "organize_select_hint": "Sélectionnez une ou plusieurs miniatures pour activer les actions.",
     "organize_clear_selection": "Effacer la sélection",
     "organize_search_paused": "Réorganisation suspendue",
-    "organize_search_paused_detail": (
-        "Effacez la recherche pour déplacer de nouveau les pages."
-    ),
+    "organize_search_paused_detail": ("Effacez la recherche pour déplacer de nouveau les pages."),
     "clear_search": "Effacer la recherche",
     "move": "Déplacer",
     "move_select_hint": "Sélectionnez des pages à déplacer.",
@@ -183,12 +177,10 @@ _FR: dict[str, str] = {
     # Merge options.
     "merge_need_two": "Ajoutez au moins deux PDF pour lancer la fusion.",
     "merge_ready": (
-        "{documents} documents • {pages} pages actives\n"
-        "Prêt à fusionner dans l’ordre affiché."
+        "{documents} documents • {pages} pages actives\nPrêt à fusionner dans l’ordre affiché."
     ),
     "merge_one_document": (
-        "1 document • {pages} page(s) active(s)\n"
-        "Ajoutez un autre PDF pour créer une fusion."
+        "1 document • {pages} page(s) active(s)\nAjoutez un autre PDF pour créer une fusion."
     ),
     "merge_order_title": "Ordre et sortie",
     "merge_order_hint": (
@@ -205,17 +197,13 @@ _FR: dict[str, str] = {
     "split_batch": "Par lots de pages",
     "split_ranges": "Plages personnalisées",
     "split_each_description": "Chaque page active devient un fichier PDF distinct.",
-    "split_batch_description": (
-        "Créez des groupes consécutifs contenant le même nombre de pages."
-    ),
+    "split_batch_description": ("Créez des groupes consécutifs contenant le même nombre de pages."),
     "split_ranges_description": (
         "Composez chaque PDF manuellement. Séparez les fichiers avec « ; »."
     ),
     "pages_per_file": "Pages par fichier",
     "split_ranges_placeholder": "Ex. 1-3; 4-6; 7",
-    "split_ranges_help": (
-        "Séparez les fichiers par « ; » et les pages d’un fichier par « , »."
-    ),
+    "split_ranges_help": ("Séparez les fichiers par « ; » et les pages d’un fichier par « , »."),
     "split_add_pdf": "Ajoutez un PDF pour préparer la division.",
     "split_no_active_page": "Aucune page active à diviser.",
     "split_active_pages": "{count} page(s) active(s) à diviser.",
@@ -241,9 +229,7 @@ _FR: dict[str, str] = {
         "Choisissez un nouveau fichier : PixoPDF ne remplace jamais un document source."
     ),
     "operation_in_progress_title": "Opération en cours",
-    "operation_in_progress_message": (
-        "Attendez la fin de l’opération avant de quitter PixoPDF."
-    ),
+    "operation_in_progress_message": ("Attendez la fin de l’opération avant de quitter PixoPDF."),
     "unexported_project_title": "Projet non exporté",
     "unexported_project_text": "Des modifications n’ont pas été exportées.",
     "unexported_project_question": "Voulez-vous exporter avant de quitter ?",
@@ -262,8 +248,7 @@ _FR: dict[str, str] = {
         "{name} retiré du workspace • {pages} page(s) retirée(s) • Ctrl+Z pour annuler"
     ),
     "workspace_cleared": (
-        "Workspace vidé • {documents} document(s) et {pages} page(s) retirés • "
-        "Ctrl+Z pour annuler"
+        "Workspace vidé • {documents} document(s) et {pages} page(s) retirés • Ctrl+Z pour annuler"
     ),
     "pages_duplicated": "{count} page(s) dupliquée(s)",
     "blank_page_added": "Page blanche {format} ajoutée • Ctrl+Z pour annuler",
@@ -338,9 +323,7 @@ _EN: dict[str, str] = {
     "all_pages": "All pages",
     "page_count": "{count} page(s)",
     "options": "Options",
-    "workspace_status": (
-        "{pages} page(s) total     {documents} document(s)     Local processing"
-    ),
+    "workspace_status": ("{pages} page(s) total     {documents} document(s)     Local processing"),
     "fixed_index": "Source page {number}",
     "outside_output": "Excluded",
     "generated_pdf": "PDF {number}",
@@ -360,9 +343,7 @@ _EN: dict[str, str] = {
     "mode_merge_workspace_title": "Pages to merge",
     "mode_split_label": "Split",
     "mode_split_home_title": "Split a PDF precisely",
-    "mode_split_home_description": (
-        "Create one PDF per page, in batches, or from custom ranges."
-    ),
+    "mode_split_home_description": ("Create one PDF per page, in batches, or from custom ranges."),
     "mode_split_workspace_title": "Pages to split",
     "mode_layout_label": "Layout",
     "mode_layout_home_title": "Prepare your page layout",
@@ -382,9 +363,7 @@ _EN: dict[str, str] = {
     "mode_protect_workspace_title": "Document to protect",
     "mode_sign_label": "Sign",
     "mode_sign_home_title": "Sign and validate your PDFs",
-    "mode_sign_home_description": (
-        "Prepare a visual signature or a verifiable digital signature."
-    ),
+    "mode_sign_home_description": ("Prepare a visual signature or a verifiable digital signature."),
     "mode_sign_workspace_title": "Document to sign",
     "mode_compress_label": "Compress",
     "mode_compress_home_title": "Reduce your PDF file size",
@@ -425,20 +404,17 @@ _EN: dict[str, str] = {
     "deleted_pages": "Deleted pages",
     "merge_need_two": "Add at least two PDFs to merge them.",
     "merge_ready": (
-        "{documents} documents • {pages} active pages\n"
-        "Ready to merge in the displayed order."
+        "{documents} documents • {pages} active pages\nReady to merge in the displayed order."
     ),
     "merge_one_document": (
-        "1 document • {pages} active page(s)\n"
-        "Add another PDF to create a merge."
+        "1 document • {pages} active page(s)\nAdd another PDF to create a merge."
     ),
     "merge_order_title": "Order and output",
     "merge_order_hint": (
         "The visible thumbnail order will be the final PDF order. Drag pages to adjust it."
     ),
     "merge_export_hint": (
-        "When two documents are ready, use “Merge and export”. "
-        "Source files are never replaced."
+        "When two documents are ready, use “Merge and export”. Source files are never replaced."
     ),
     "split_choose_method": "Choose how to create the new PDFs",
     "split_each": "One PDF per page",
@@ -451,9 +427,7 @@ _EN: dict[str, str] = {
     ),
     "pages_per_file": "Pages per file",
     "split_ranges_placeholder": "E.g. 1-3; 4-6; 7",
-    "split_ranges_help": (
-        "Separate output files with “;” and pages within one file with “,”."
-    ),
+    "split_ranges_help": ("Separate output files with “;” and pages within one file with “,”."),
     "split_add_pdf": "Add a PDF to prepare the split.",
     "split_no_active_page": "There are no active pages to split.",
     "split_active_pages": "{count} active page(s) to split.",
@@ -493,8 +467,7 @@ _EN: dict[str, str] = {
         "{name} removed from workspace • {pages} page(s) removed • Ctrl+Z to undo"
     ),
     "workspace_cleared": (
-        "Workspace cleared • {documents} document(s) and {pages} page(s) removed • "
-        "Ctrl+Z to undo"
+        "Workspace cleared • {documents} document(s) and {pages} page(s) removed • Ctrl+Z to undo"
     ),
     "pages_duplicated": "{count} page(s) duplicated",
     "blank_page_added": "Blank {format} page added • Ctrl+Z to undo",
@@ -683,9 +656,7 @@ _ZH: dict[str, str] = {
     "pages_marked_deleted": "已将 {count} 页标记为删除 • 导出时会忽略",
     "pages_restored": "已恢复 {count} 页",
     "document_removed": "已从工作区移除 {name} • 移除 {pages} 页 • Ctrl+Z 撤销",
-    "workspace_cleared": (
-        "工作区已清空 • 移除 {documents} 个文档和 {pages} 页 • Ctrl+Z 撤销"
-    ),
+    "workspace_cleared": ("工作区已清空 • 移除 {documents} 个文档和 {pages} 页 • Ctrl+Z 撤销"),
     "pages_duplicated": "已复制 {count} 页",
     "blank_page_added": "已添加 {format} 空白页 • Ctrl+Z 撤销",
     "pages_rotated": "已向{direction}旋转 {count} 页",
@@ -747,8 +718,7 @@ _AR: dict[str, str] = {
     "close_all_tooltip": "إغلاق كل الملفات وإنشاء مساحة عمل فارغة",
     "no_page": "لا توجد صفحات",
     "add_pdf_or_blank": (
-        "أضف ملف PDF أو أنشئ صفحة فارغة.\n"
-        "ستظهر الصور المصغرة هنا من دون تعديل ملفاتك الأصلية."
+        "أضف ملف PDF أو أنشئ صفحة فارغة.\nستظهر الصور المصغرة هنا من دون تعديل ملفاتك الأصلية."
     ),
     "choose_pdfs": "اختيار ملفات PDF",
     "create_blank_a4": "إنشاء صفحة A4 فارغة",
@@ -759,9 +729,7 @@ _AR: dict[str, str] = {
     "all_pages": "كل الصفحات",
     "page_count": "{count} صفحة",
     "options": "الخيارات",
-    "workspace_status": (
-        "{pages} صفحة إجمالاً     {documents} مستند     معالجة محلية"
-    ),
+    "workspace_status": ("{pages} صفحة إجمالاً     {documents} مستند     معالجة محلية"),
     "fixed_index": "صفحة المصدر {number}",
     "outside_output": "مستبعدة",
     "generated_pdf": "PDF {number}",
@@ -775,45 +743,31 @@ _AR: dict[str, str] = {
     "mode_organize_workspace_title": "كل الصفحات",
     "mode_merge_label": "دمج",
     "mode_merge_home_title": "ادمج عدة ملفات PDF",
-    "mode_merge_home_description": (
-        "أضف عدة مستندات واضبط ترتيبها ثم صدّر ملف PDF واحداً."
-    ),
+    "mode_merge_home_description": ("أضف عدة مستندات واضبط ترتيبها ثم صدّر ملف PDF واحداً."),
     "mode_merge_workspace_title": "صفحات الدمج",
     "mode_split_label": "تقسيم",
     "mode_split_home_title": "قسّم ملف PDF بدقة",
-    "mode_split_home_description": (
-        "أنشئ ملف PDF لكل صفحة أو على دفعات أو باستخدام نطاقات مخصصة."
-    ),
+    "mode_split_home_description": ("أنشئ ملف PDF لكل صفحة أو على دفعات أو باستخدام نطاقات مخصصة."),
     "mode_split_workspace_title": "صفحات التقسيم",
     "mode_layout_label": "تخطيط الصفحة",
     "mode_layout_home_title": "حضّر تخطيط الصفحات",
-    "mode_layout_home_description": (
-        "أضف صفحات فارغة وجهّز المستندات للشاشة أو الطباعة."
-    ),
+    "mode_layout_home_description": ("أضف صفحات فارغة وجهّز المستندات للشاشة أو الطباعة."),
     "mode_layout_workspace_title": "صفحات التخطيط",
     "mode_convert_label": "تحويل",
     "mode_convert_home_title": "حوّل مستنداتك",
-    "mode_convert_home_description": (
-        "حوّل ملف PDF إلى صور أو الصور إلى PDF محلياً."
-    ),
+    "mode_convert_home_description": ("حوّل ملف PDF إلى صور أو الصور إلى PDF محلياً."),
     "mode_convert_workspace_title": "المستند المراد تحويله",
     "mode_protect_label": "حماية",
     "mode_protect_home_title": "احمِ ملفات PDF",
-    "mode_protect_home_description": (
-        "أضف كلمة مرور وتحكّم في الأذونات من دون رفع ملفاتك."
-    ),
+    "mode_protect_home_description": ("أضف كلمة مرور وتحكّم في الأذونات من دون رفع ملفاتك."),
     "mode_protect_workspace_title": "المستند المراد حمايته",
     "mode_sign_label": "توقيع",
     "mode_sign_home_title": "وقّع ملفات PDF وتحقق منها",
-    "mode_sign_home_description": (
-        "حضّر توقيعاً مرئياً أو توقيعاً رقمياً قابلاً للتحقق."
-    ),
+    "mode_sign_home_description": ("حضّر توقيعاً مرئياً أو توقيعاً رقمياً قابلاً للتحقق."),
     "mode_sign_workspace_title": "المستند المراد توقيعه",
     "mode_compress_label": "ضغط",
     "mode_compress_home_title": "قلّل حجم ملفات PDF",
-    "mode_compress_home_description": (
-        "اختر مستوى ضغط مناسباً للمشاركة أو الويب أو الأرشفة."
-    ),
+    "mode_compress_home_description": ("اختر مستوى ضغط مناسباً للمشاركة أو الويب أو الأرشفة."),
     "mode_compress_workspace_title": "المستند المراد ضغطه",
     "organize_short_description": "أعد ترتيب الصفحات أو تدويرها أو تكرارها أو إدراجها أو إزالتها.",
     "organize_select_hint": "حدد صورة مصغرة واحدة أو أكثر لتفعيل الإجراءات.",
@@ -847,14 +801,8 @@ _AR: dict[str, str] = {
     "modified_pages": "الصفحات المعدّلة",
     "deleted_pages": "الصفحات المحذوفة",
     "merge_need_two": "أضف ملفي PDF على الأقل لبدء الدمج.",
-    "merge_ready": (
-        "{documents} مستند • {pages} صفحة نشطة\n"
-        "جاهز للدمج وفق الترتيب المعروض."
-    ),
-    "merge_one_document": (
-        "مستند واحد • {pages} صفحة نشطة\n"
-        "أضف ملف PDF آخر لإنشاء عملية دمج."
-    ),
+    "merge_ready": ("{documents} مستند • {pages} صفحة نشطة\nجاهز للدمج وفق الترتيب المعروض."),
+    "merge_one_document": ("مستند واحد • {pages} صفحة نشطة\nأضف ملف PDF آخر لإنشاء عملية دمج."),
     "merge_order_title": "الترتيب والإخراج",
     "merge_order_hint": (
         "ترتيب الصور المصغرة الظاهر هو ترتيب ملف PDF النهائي. اسحب الصفحات لضبطه."
@@ -873,9 +821,7 @@ _AR: dict[str, str] = {
     ),
     "pages_per_file": "عدد الصفحات لكل ملف",
     "split_ranges_placeholder": "مثال: 1-3; 4-6; 7",
-    "split_ranges_help": (
-        "افصل الملفات بعلامة «;» والصفحات داخل الملف بعلامة «,»."
-    ),
+    "split_ranges_help": ("افصل الملفات بعلامة «;» والصفحات داخل الملف بعلامة «,»."),
     "split_add_pdf": "أضف ملف PDF للتحضير للتقسيم.",
     "split_no_active_page": "لا توجد صفحات نشطة للتقسيم.",
     "split_active_pages": "{count} صفحة نشطة للتقسيم.",
@@ -885,9 +831,7 @@ _AR: dict[str, str] = {
     "split_range_out_of_bounds": "الصفحة {page} غير موجودة في المستند النشط.",
     "layout_short_description": "أضف صفحات فارغة وحضّر تخطيط الصفحات.",
     "layout_blank_title": "إضافة صفحة فارغة",
-    "layout_blank_description": (
-        "أضف صفحة A4 عمودية بعد التحديد أو في نهاية المشروع."
-    ),
+    "layout_blank_description": ("أضف صفحة A4 عمودية بعد التحديد أو في نهاية المشروع."),
     "planned_actions": "الميزات المخطط لها",
     "feature_unavailable": "ستتوفر ميزة {feature} قريباً.",
     "untitled_project": "مشروع بلا عنوان",
@@ -895,13 +839,9 @@ _AR: dict[str, str] = {
     "split_folder_dialog": "اختيار مجلد ملفات PDF المقسمة",
     "export_pdf_dialog": "تصدير PDF",
     "invalid_destination_title": "وجهة غير صالحة",
-    "invalid_destination_message": (
-        "اختر ملفاً جديداً: لا يستبدل PixoPDF المستند المصدر أبداً."
-    ),
+    "invalid_destination_message": ("اختر ملفاً جديداً: لا يستبدل PixoPDF المستند المصدر أبداً."),
     "operation_in_progress_title": "عملية قيد التنفيذ",
-    "operation_in_progress_message": (
-        "انتظر حتى تنتهي العملية قبل إغلاق PixoPDF."
-    ),
+    "operation_in_progress_message": ("انتظر حتى تنتهي العملية قبل إغلاق PixoPDF."),
     "unexported_project_title": "مشروع غير مُصدّر",
     "unexported_project_text": "هناك تعديلات لم يتم تصديرها.",
     "unexported_project_question": "هل تريد التصدير قبل الخروج؟",
@@ -911,13 +851,9 @@ _AR: dict[str, str] = {
     "import_error_title": "تعذر الاستيراد",
     "import_unexpected": "نتيجة استيراد غير متوقعة",
     "documents_added": "تمت إضافة {documents} مستند • {pages} صفحة",
-    "pages_marked_deleted": (
-        "تم تعليم {count} صفحة كمحذوفة • لن يتم تصديرها"
-    ),
+    "pages_marked_deleted": ("تم تعليم {count} صفحة كمحذوفة • لن يتم تصديرها"),
     "pages_restored": "تمت استعادة {count} صفحة",
-    "document_removed": (
-        "تمت إزالة {name} من مساحة العمل • أزيلت {pages} صفحة • Ctrl+Z للتراجع"
-    ),
+    "document_removed": ("تمت إزالة {name} من مساحة العمل • أزيلت {pages} صفحة • Ctrl+Z للتراجع"),
     "workspace_cleared": (
         "تم إفراغ مساحة العمل • أزيل {documents} مستند و{pages} صفحة • Ctrl+Z للتراجع"
     ),
@@ -955,12 +891,8 @@ _FR.update(
         "blank_landscape_after_selection": "A4 paysage · après la sélection",
         "blank_landscape_at_end": "A4 paysage · à la fin du document",
         "blank_page_dimensions": "Page blanche — {width} × {height} points",
-        "clear_search_to_reorder": (
-            "Effacez la recherche pour déplacer de nouveau les pages."
-        ),
-        "clear_search_to_reorder_short": (
-            "Effacez la recherche pour réorganiser les pages."
-        ),
+        "clear_search_to_reorder": ("Effacez la recherche pour déplacer de nouveau les pages."),
+        "clear_search_to_reorder_short": ("Effacez la recherche pour réorganiser les pages."),
         "clear_selection": "Effacer la sélection (Échap)",
         "close_all_files_tooltip": "Fermer tous les fichiers et créer un workspace vide",
         "coming_soon_tooltip": "Disponible prochainement — {description}",
@@ -972,9 +904,7 @@ _FR.update(
         "deleted_pages_count_one": "1 supprimée",
         "deleted_pages_count_other": "{count} supprimées",
         "duplicate_pages_count": "Dupliquer {count} pages",
-        "empty_mode_detail": (
-            "{title}.\nAjoutez un PDF pour afficher ses vignettes ici."
-        ),
+        "empty_mode_detail": ("{title}.\nAjoutez un PDF pour afficher ses vignettes ici."),
         "export_tooltip": "Exporter le PDF (Ctrl+S)",
         "home_tooltip": "Fermer les fichiers ouverts et revenir à l’accueil",
         "invalid_reference": "référence invalide",
@@ -984,20 +914,14 @@ _FR.update(
         "layout_after_selected": (
             "La nouvelle page sera ajoutée après {count} page(s) sélectionnée(s)."
         ),
-        "layout_after_selected_one": (
-            "La nouvelle page sera ajoutée après 1 page sélectionnée."
-        ),
+        "layout_after_selected_one": ("La nouvelle page sera ajoutée après 1 page sélectionnée."),
         "layout_after_selected_other": (
             "La nouvelle page sera ajoutée après {count} pages sélectionnées."
         ),
-        "layout_no_selection": (
-            "Sans sélection, la nouvelle page sera ajoutée à la fin."
-        ),
+        "layout_no_selection": ("Sans sélection, la nouvelle page sera ajoutée à la fin."),
         "loading": "Chargement…",
         "merge_and_export": "Fusionner et exporter",
-        "merge_and_export_tooltip": (
-            "Fusionner les documents puis choisir le PDF de destination"
-        ),
+        "merge_and_export_tooltip": ("Fusionner les documents puis choisir le PDF de destination"),
         "merge_order_output": "ORDRE ET SORTIE",
         "merge_output_hint": (
             "Quand deux documents sont prêts, utilisez « Fusionner et exporter » "
@@ -1058,14 +982,10 @@ _FR.update(
         "split_ignored_deleted_one": "1 page supprimée sera ignorée.",
         "split_ignored_deleted_other": "{count} pages supprimées seront ignorées.",
         "split_into_count": "Diviser en {count} PDF",
-        "split_page_excluded": (
-            "Division : page active {page} non incluse dans la sortie"
-        ),
+        "split_page_excluded": ("Division : page active {page} non incluse dans la sortie"),
         "split_page_outputs": "Division : page active {page} → {outputs}",
         "split_preview_ready_one": "Aperçu prêt • 1 fichier PDF sera créé.",
-        "split_preview_ready_other": (
-            "Aperçu prêt • {count} fichiers PDF seront créés."
-        ),
+        "split_preview_ready_other": ("Aperçu prêt • {count} fichiers PDF seront créés."),
         "stable_index": "Indice stable : Page {number}",
         "stable_indices_drag_active": "Indices fixes · glisser-déposer actif",
         "tool_accessible": "Outil {tool}",
@@ -1109,23 +1029,13 @@ _EN.update(
         "invalid_source_reference": "Invalid source page reference",
         "invalid_thumbnail": "Invalid thumbnail image",
         "language_tooltip": "Change interface language",
-        "layout_after_selected": (
-            "The new page will be added after {count} selected page(s)."
-        ),
-        "layout_after_selected_one": (
-            "The new page will be added after 1 selected page."
-        ),
-        "layout_after_selected_other": (
-            "The new page will be added after {count} selected pages."
-        ),
-        "layout_no_selection": (
-            "With no selection, the new page will be added at the end."
-        ),
+        "layout_after_selected": ("The new page will be added after {count} selected page(s)."),
+        "layout_after_selected_one": ("The new page will be added after 1 selected page."),
+        "layout_after_selected_other": ("The new page will be added after {count} selected pages."),
+        "layout_no_selection": ("With no selection, the new page will be added at the end."),
         "loading": "Loading…",
         "merge_and_export": "Merge and export",
-        "merge_and_export_tooltip": (
-            "Merge the documents, then choose the destination PDF"
-        ),
+        "merge_and_export_tooltip": ("Merge the documents, then choose the destination PDF"),
         "merge_order_output": "ORDER AND OUTPUT",
         "merge_output_hint": (
             "When two documents are ready, use “Merge and export” in the top bar. "
@@ -1185,9 +1095,7 @@ _EN.update(
         "split_page_excluded": "Split: active page {page} is excluded from output",
         "split_page_outputs": "Split: active page {page} → {outputs}",
         "split_preview_ready_one": "Preview ready • 1 PDF file will be created.",
-        "split_preview_ready_other": (
-            "Preview ready • {count} PDF files will be created."
-        ),
+        "split_preview_ready_other": ("Preview ready • {count} PDF files will be created."),
         "stable_index": "Stable index: Page {number}",
         "stable_indices_drag_active": "Fixed indices · drag and drop enabled",
         "tool_accessible": "{tool} tool",
@@ -1239,9 +1147,7 @@ _ZH.update(
         "merge_and_export": "合并并导出",
         "merge_and_export_tooltip": "合并文档，然后选择目标 PDF",
         "merge_order_output": "顺序与输出",
-        "merge_output_hint": (
-            "两个文档准备好后，使用顶部栏中的“合并并导出”。源文件不会被替换。"
-        ),
+        "merge_output_hint": ("两个文档准备好后，使用顶部栏中的“合并并导出”。源文件不会被替换。"),
         "modified_pages_count": "{count} 个已修改或添加页面",
         "modified_pages_count_one": "已修改/添加 1 页",
         "modified_pages_count_other": "已修改/添加 {count} 页",
@@ -1340,18 +1246,10 @@ _AR.update(
         "invalid_source_reference": "مرجع صفحة المصدر غير صالح",
         "invalid_thumbnail": "صورة مصغرة غير صالحة",
         "language_tooltip": "تغيير لغة الواجهة",
-        "layout_after_selected": (
-            "ستُضاف الصفحة الجديدة بعد {count} صفحة محددة."
-        ),
-        "layout_after_selected_one": (
-            "ستُضاف الصفحة الجديدة بعد الصفحة المحددة."
-        ),
-        "layout_after_selected_other": (
-            "ستُضاف الصفحة الجديدة بعد {count} صفحات محددة."
-        ),
-        "layout_no_selection": (
-            "من دون تحديد، ستُضاف الصفحة الجديدة في النهاية."
-        ),
+        "layout_after_selected": ("ستُضاف الصفحة الجديدة بعد {count} صفحة محددة."),
+        "layout_after_selected_one": ("ستُضاف الصفحة الجديدة بعد الصفحة المحددة."),
+        "layout_after_selected_other": ("ستُضاف الصفحة الجديدة بعد {count} صفحات محددة."),
+        "layout_no_selection": ("من دون تحديد، ستُضاف الصفحة الجديدة في النهاية."),
         "loading": "جارٍ التحميل…",
         "merge_and_export": "دمج وتصدير",
         "merge_and_export_tooltip": "دمج المستندات ثم اختيار ملف PDF الوجهة",
@@ -1390,9 +1288,7 @@ _AR.update(
         "redo_tooltip": "إعادة (Ctrl+Shift+Z)",
         "relative_order_drag_active": "الترتيب محفوظ · السحب والإفلات مفعّل",
         "reorder_paused": "تم إيقاف إعادة الترتيب مؤقتاً",
-        "restore_or_add_pdf": (
-            "استخدم «تراجع» لاستعادة الصفحات، أو أضف مستند PDF آخر."
-        ),
+        "restore_or_add_pdf": ("استخدم «تراجع» لاستعادة الصفحات، أو أضف مستند PDF آخر."),
         "restore_page": "استعادة الصفحة",
         "restore_pages_count": "استعادة {count} صفحات",
         "search_results": "{visible} نتيجة من أصل {total} صفحة",
@@ -1404,9 +1300,7 @@ _AR.update(
         "selection_deleted_suffix_one": " · صفحة محذوفة واحدة",
         "selection_deleted_suffix_other": " · {count} صفحات محذوفة",
         "selection_multiple_detail": "الصفحات {pages} · الترتيب النسبي محفوظ",
-        "selection_single_detail": (
-            "الصفحة {page} · الموضع {position} من {total}"
-        ),
+        "selection_single_detail": ("الصفحة {page} · الموضع {position} من {total}"),
         "source_page": "صفحة المصدر",
         "source_page_detail": "{document} — صفحة المصدر {page}",
         "split_active_pages_one": "صفحة نشطة واحدة",
@@ -1415,18 +1309,398 @@ _AR.update(
         "split_ignored_deleted_one": "سيتم تجاهل صفحة محذوفة واحدة.",
         "split_ignored_deleted_other": "سيتم تجاهل {count} صفحات محذوفة.",
         "split_into_count": "تقسيم إلى {count} ملف PDF",
-        "split_page_excluded": (
-            "التقسيم: الصفحة النشطة {page} غير مضمنة في الإخراج"
-        ),
+        "split_page_excluded": ("التقسيم: الصفحة النشطة {page} غير مضمنة في الإخراج"),
         "split_page_outputs": "التقسيم: الصفحة النشطة {page} ← {outputs}",
         "split_preview_ready_one": "المعاينة جاهزة • سيتم إنشاء ملف PDF واحد.",
-        "split_preview_ready_other": (
-            "المعاينة جاهزة • سيتم إنشاء {count} ملفات PDF."
-        ),
+        "split_preview_ready_other": ("المعاينة جاهزة • سيتم إنشاء {count} ملفات PDF."),
         "stable_index": "الفهرس الثابت: الصفحة {number}",
         "stable_indices_drag_active": "فهارس ثابتة · السحب والإفلات مفعّل",
         "tool_accessible": "أداة {tool}",
         "undo_tooltip": "تراجع (Ctrl+Z)",
+    }
+)
+
+# Main menu, application dialogs, sponsorship and update-check labels.
+_FR.update(
+    {
+        "about_license": "Licence",
+        "about_credits": "Crédits",
+        "about_credits_text": (
+            "Développé par PixoGlace avec Python et PySide6, grâce aux bibliothèques "
+            "libres de l’écosystème PDF."
+        ),
+        "about_local_privacy": "Traitement local et confidentialité",
+        "about_local_privacy_detail": (
+            "Vos PDF restent sur cet appareil. Seules les actions explicites liées "
+            "au projet, à Ko-fi ou aux mises à jour peuvent ouvrir une connexion externe."
+        ),
+        "about_tagline": (
+            "Organisez, transformez et protégez vos PDF directement sur votre appareil."
+        ),
+        "about_title": "À propos de {app}",
+        "about_version": "Version",
+        "cancel": "Annuler",
+        "check_updates": "Rechercher des mises à jour…",
+        "clear_selection_menu": "Effacer la sélection",
+        "close": "Fermer",
+        "download_update": "Télécharger la mise à jour",
+        "duplicate_selected_pages": "Dupliquer les pages sélectionnées",
+        "external_link_error_message": ("Impossible d’ouvrir ce lien dans votre navigateur."),
+        "external_link_error_title": "Lien impossible à ouvrir",
+        "help_get_started_body": (
+            "Glissez un ou plusieurs PDF dans la fenêtre, ou utilisez « Ajouter des "
+            "PDF ». Choisissez ensuite un outil dans la barre supérieure."
+        ),
+        "help_get_started_title": "Bien démarrer",
+        "help_privacy_body": (
+            "Vos documents sont traités sur votre appareil. PixoPDF n’envoie aucun "
+            "fichier vers un service en ligne."
+        ),
+        "help_privacy_title": "Confidentialité et traitement local",
+        "help_workflow_body": (
+            "Sélectionnez les miniatures, réglez l’opération dans le panneau d’options, "
+            "vérifiez l’aperçu puis exportez vers un nouveau fichier."
+        ),
+        "help_workflow_title": "Flux de travail",
+        "home_status": ("Workspace vide     Déposez un PDF pour commencer     Traitement local"),
+        "insert_blank_page_menu": "Insérer une page blanche",
+        "keyboard_shortcuts": "Raccourcis clavier",
+        "menu_add_pdfs": "Ajouter des PDF…",
+        "menu_edit": "Édition",
+        "menu_file": "Fichier",
+        "menu_help": "Aide",
+        "menu_new_workspace": "Nouveau workspace",
+        "menu_project_page": "Page du projet",
+        "menu_quick_help": "Aide rapide",
+        "menu_quit": "Quitter PixoPDF",
+        "menu_settings": "Paramètres…",
+        "menu_tools": "Outils",
+        "menu_view": "Affichage",
+        "project_website": "Site du projet",
+        "quick_help_description": (
+            "Retrouvez les étapes essentielles et les raccourcis de PixoPDF."
+        ),
+        "quick_help_title": "Aide rapide",
+        "rotate_selected_left": "Tourner la sélection à gauche",
+        "rotate_selected_right": "Tourner la sélection à droite",
+        "save": "Enregistrer",
+        "settings_appearance": "Apparence",
+        "settings_automatic_updates": ("Rechercher automatiquement les nouvelles versions"),
+        "settings_automatic_updates_hint": (
+            "PixoPDF interroge GitHub au plus une fois par jour. Aucune mise à jour "
+            "n’est installée sans votre action."
+        ),
+        "settings_description": ("Personnalisez l’interface et la vérification des mises à jour."),
+        "settings_language": "Langue de l’interface",
+        "settings_language_hint": (
+            "Le changement de langue est appliqué à toute l’application après enregistrement."
+        ),
+        "settings_theme": "Thème",
+        "settings_theme_hint": (
+            "Choisissez le thème clair ou sombre adapté à votre environnement."
+        ),
+        "settings_title": "Paramètres",
+        "settings_updates": "Mises à jour",
+        "sponsor_kofi": "Soutenir sur Ko-fi",
+        "sponsor_kofi_tooltip": ("Soutenir le développement de PixoPDF sur Ko-fi"),
+        "support_project": "Soutenir le projet",
+        "switch_to_dark_theme": "Utiliser le thème sombre",
+        "switch_to_light_theme": "Utiliser le thème clair",
+        "theme_dark": "Sombre",
+        "theme_light": "Clair",
+        "update_available": "Mise à jour disponible",
+        "update_available_message": (
+            "Une nouvelle version de {app} est disponible.\n\n"
+            "Version installée : {current}\n"
+            "Dernière version : {latest}"
+        ),
+        "update_check_failed": "Recherche de mise à jour impossible",
+        "update_check_failed_message": (
+            "PixoPDF n’a pas pu contacter le service de mise à jour. "
+            "Vérifiez votre connexion puis réessayez."
+        ),
+        "update_checking": "Recherche d’une mise à jour…",
+        "update_current": "PixoPDF est à jour",
+        "update_current_message": ("{app} {version} est la dernière version disponible."),
+        "update_later": "Plus tard",
+        "zoom_in": "Agrandir les miniatures",
+        "zoom_out": "Réduire les miniatures",
+    }
+)
+
+_EN.update(
+    {
+        "about_license": "License",
+        "about_credits": "Credits",
+        "about_credits_text": (
+            "Developed by PixoGlace with Python and PySide6, supported by open-source "
+            "libraries from the PDF ecosystem."
+        ),
+        "about_local_privacy": "Local processing and privacy",
+        "about_local_privacy_detail": (
+            "Your PDFs stay on this device. Only explicit actions related to the "
+            "project, Ko-fi or updates may open an external connection."
+        ),
+        "about_tagline": ("Organize, transform and protect PDFs directly on your device."),
+        "about_title": "About {app}",
+        "about_version": "Version",
+        "cancel": "Cancel",
+        "check_updates": "Check for updates…",
+        "clear_selection_menu": "Clear selection",
+        "close": "Close",
+        "download_update": "Download update",
+        "duplicate_selected_pages": "Duplicate selected pages",
+        "external_link_error_message": ("This link could not be opened in your browser."),
+        "external_link_error_title": "Could not open link",
+        "help_get_started_body": (
+            "Drag one or more PDFs into the window, or use “Add PDFs”. Then choose "
+            "a tool from the top bar."
+        ),
+        "help_get_started_title": "Get started",
+        "help_privacy_body": (
+            "Your documents are processed on your device. PixoPDF does not upload "
+            "files to an online service."
+        ),
+        "help_privacy_title": "Privacy and local processing",
+        "help_workflow_body": (
+            "Select thumbnails, configure the operation in the options panel, "
+            "review the preview, then export to a new file."
+        ),
+        "help_workflow_title": "Workflow",
+        "home_status": ("Empty workspace     Drop a PDF to get started     Local processing"),
+        "insert_blank_page_menu": "Insert blank page",
+        "keyboard_shortcuts": "Keyboard shortcuts",
+        "menu_add_pdfs": "Add PDFs…",
+        "menu_edit": "Edit",
+        "menu_file": "File",
+        "menu_help": "Help",
+        "menu_new_workspace": "New workspace",
+        "menu_project_page": "Project page",
+        "menu_quick_help": "Quick help",
+        "menu_quit": "Quit PixoPDF",
+        "menu_settings": "Settings…",
+        "menu_tools": "Tools",
+        "menu_view": "View",
+        "project_website": "Project website",
+        "quick_help_description": ("Review PixoPDF’s essential steps and keyboard shortcuts."),
+        "quick_help_title": "Quick help",
+        "rotate_selected_left": "Rotate selection left",
+        "rotate_selected_right": "Rotate selection right",
+        "save": "Save",
+        "settings_appearance": "Appearance",
+        "settings_automatic_updates": "Automatically check for new versions",
+        "settings_automatic_updates_hint": (
+            "PixoPDF checks GitHub at most once a day. No update is installed without your action."
+        ),
+        "settings_description": ("Customize the interface and how PixoPDF checks for updates."),
+        "settings_language": "Interface language",
+        "settings_language_hint": (
+            "Language changes are applied throughout the application after you save."
+        ),
+        "settings_theme": "Theme",
+        "settings_theme_hint": ("Choose the light or dark theme that suits your environment."),
+        "settings_title": "Settings",
+        "settings_updates": "Updates",
+        "sponsor_kofi": "Support on Ko-fi",
+        "sponsor_kofi_tooltip": "Support PixoPDF development on Ko-fi",
+        "support_project": "Support the project",
+        "switch_to_dark_theme": "Use dark theme",
+        "switch_to_light_theme": "Use light theme",
+        "theme_dark": "Dark",
+        "theme_light": "Light",
+        "update_available": "Update available",
+        "update_available_message": (
+            "A new version of {app} is available.\n\n"
+            "Installed version: {current}\n"
+            "Latest version: {latest}"
+        ),
+        "update_check_failed": "Could not check for updates",
+        "update_check_failed_message": (
+            "PixoPDF could not contact the update service. Check your connection and try again."
+        ),
+        "update_checking": "Checking for updates…",
+        "update_current": "PixoPDF is up to date",
+        "update_current_message": ("{app} {version} is the latest available version."),
+        "update_later": "Later",
+        "zoom_in": "Enlarge thumbnails",
+        "zoom_out": "Reduce thumbnail size",
+    }
+)
+
+_ZH.update(
+    {
+        "about_license": "许可证",
+        "about_credits": "鸣谢",
+        "about_credits_text": (
+            "由 PixoGlace 使用 Python 和 PySide6 开发，并采用 PDF 生态中的开源库。"
+        ),
+        "about_local_privacy": "本地处理与隐私",
+        "about_local_privacy_detail": (
+            "您的 PDF 保留在此设备上。只有项目、Ko-fi 或更新相关的明确操作才可能建立外部连接。"
+        ),
+        "about_tagline": "直接在您的设备上整理、转换和保护 PDF。",
+        "about_title": "关于 {app}",
+        "about_version": "版本",
+        "cancel": "取消",
+        "check_updates": "检查更新…",
+        "clear_selection_menu": "清除选择",
+        "close": "关闭",
+        "download_update": "下载更新",
+        "duplicate_selected_pages": "复制所选页面",
+        "external_link_error_message": "无法在浏览器中打开此链接。",
+        "external_link_error_title": "无法打开链接",
+        "help_get_started_body": (
+            "将一个或多个 PDF 拖入窗口，或使用“添加 PDF”。然后从顶部栏选择工具。"
+        ),
+        "help_get_started_title": "使用入门",
+        "help_privacy_body": ("您的文档只在设备上处理。PixoPDF 不会将文件上传到任何在线服务。"),
+        "help_privacy_title": "隐私与本地处理",
+        "help_workflow_body": ("选择缩略图，在选项面板中配置操作，检查预览，然后导出为新文件。"),
+        "help_workflow_title": "工作流程",
+        "home_status": "空白工作区     拖入 PDF 即可开始     本地处理",
+        "insert_blank_page_menu": "插入空白页",
+        "keyboard_shortcuts": "键盘快捷键",
+        "menu_add_pdfs": "添加 PDF…",
+        "menu_edit": "编辑",
+        "menu_file": "文件",
+        "menu_help": "帮助",
+        "menu_new_workspace": "新建工作区",
+        "menu_project_page": "项目页面",
+        "menu_quick_help": "快速帮助",
+        "menu_quit": "退出 PixoPDF",
+        "menu_settings": "设置…",
+        "menu_tools": "工具",
+        "menu_view": "视图",
+        "project_website": "项目网站",
+        "quick_help_description": "查看 PixoPDF 的基本操作步骤和键盘快捷键。",
+        "quick_help_title": "快速帮助",
+        "rotate_selected_left": "向左旋转所选页面",
+        "rotate_selected_right": "向右旋转所选页面",
+        "save": "保存",
+        "settings_appearance": "外观",
+        "settings_automatic_updates": "自动检查新版本",
+        "settings_automatic_updates_hint": (
+            "PixoPDF 每天最多检查一次 GitHub。未经您的操作，不会安装任何更新。"
+        ),
+        "settings_description": "自定义界面以及 PixoPDF 检查更新的方式。",
+        "settings_language": "界面语言",
+        "settings_language_hint": "保存设置后，语言更改会应用到整个应用。",
+        "settings_theme": "主题",
+        "settings_theme_hint": "选择适合当前环境的浅色或深色主题。",
+        "settings_title": "设置",
+        "settings_updates": "更新",
+        "sponsor_kofi": "在 Ko-fi 上支持",
+        "sponsor_kofi_tooltip": "通过 Ko-fi 支持 PixoPDF 的开发",
+        "support_project": "支持项目",
+        "switch_to_dark_theme": "使用深色主题",
+        "switch_to_light_theme": "使用浅色主题",
+        "theme_dark": "深色",
+        "theme_light": "浅色",
+        "update_available": "有可用更新",
+        "update_available_message": (
+            "{app} 有新版本可用。\n\n已安装版本：{current}\n最新版本：{latest}"
+        ),
+        "update_check_failed": "无法检查更新",
+        "update_check_failed_message": ("PixoPDF 无法连接更新服务。请检查网络连接后重试。"),
+        "update_checking": "正在检查更新…",
+        "update_current": "PixoPDF 已是最新版本",
+        "update_current_message": "{app} {version} 是当前最新版本。",
+        "update_later": "稍后",
+        "zoom_in": "放大缩略图",
+        "zoom_out": "缩小缩略图",
+    }
+)
+
+_AR.update(
+    {
+        "about_license": "الترخيص",
+        "about_credits": "شكر وتقدير",
+        "about_credits_text": (
+            "طوّره PixoGlace باستخدام Python وPySide6 وبمساعدة مكتبات مفتوحة المصدر من منظومة PDF."
+        ),
+        "about_local_privacy": "المعالجة المحلية والخصوصية",
+        "about_local_privacy_detail": (
+            "تبقى ملفات PDF على هذا الجهاز. وحدها الإجراءات الصريحة المرتبطة بالمشروع "
+            "أو Ko-fi أو التحديثات قد تفتح اتصالاً خارجياً."
+        ),
+        "about_tagline": ("نظّم ملفات PDF وحوّلها واحمها مباشرةً على جهازك."),
+        "about_title": "حول {app}",
+        "about_version": "الإصدار",
+        "cancel": "إلغاء",
+        "check_updates": "التحقق من وجود تحديثات…",
+        "clear_selection_menu": "مسح التحديد",
+        "close": "إغلاق",
+        "download_update": "تنزيل التحديث",
+        "duplicate_selected_pages": "تكرار الصفحات المحددة",
+        "external_link_error_message": "تعذر فتح هذا الرابط في المتصفح.",
+        "external_link_error_title": "تعذر فتح الرابط",
+        "help_get_started_body": (
+            "اسحب ملف PDF واحداً أو أكثر إلى النافذة، أو استخدم «إضافة ملفات PDF». "
+            "ثم اختر أداة من الشريط العلوي."
+        ),
+        "help_get_started_title": "بدء الاستخدام",
+        "help_privacy_body": (
+            "تتم معالجة مستنداتك على جهازك. لا يرفع PixoPDF أي ملف إلى خدمة عبر الإنترنت."
+        ),
+        "help_privacy_title": "الخصوصية والمعالجة المحلية",
+        "help_workflow_body": (
+            "حدد الصور المصغرة، واضبط العملية في لوحة الخيارات، وراجع المعاينة، "
+            "ثم صدّر النتيجة إلى ملف جديد."
+        ),
+        "help_workflow_title": "سير العمل",
+        "home_status": ("مساحة عمل فارغة     أسقط ملف PDF للبدء     معالجة محلية"),
+        "insert_blank_page_menu": "إدراج صفحة فارغة",
+        "keyboard_shortcuts": "اختصارات لوحة المفاتيح",
+        "menu_add_pdfs": "إضافة ملفات PDF…",
+        "menu_edit": "تحرير",
+        "menu_file": "ملف",
+        "menu_help": "مساعدة",
+        "menu_new_workspace": "مساحة عمل جديدة",
+        "menu_project_page": "صفحة المشروع",
+        "menu_quick_help": "مساعدة سريعة",
+        "menu_quit": "إنهاء PixoPDF",
+        "menu_settings": "الإعدادات…",
+        "menu_tools": "أدوات",
+        "menu_view": "عرض",
+        "project_website": "موقع المشروع",
+        "quick_help_description": ("تعرّف على خطوات PixoPDF الأساسية واختصارات لوحة المفاتيح."),
+        "quick_help_title": "مساعدة سريعة",
+        "rotate_selected_left": "تدوير التحديد إلى اليسار",
+        "rotate_selected_right": "تدوير التحديد إلى اليمين",
+        "save": "حفظ",
+        "settings_appearance": "المظهر",
+        "settings_automatic_updates": ("التحقق تلقائياً من توفر إصدارات جديدة"),
+        "settings_automatic_updates_hint": (
+            "يتحقق PixoPDF من GitHub مرة واحدة يومياً على الأكثر. لن يُثبّت أي تحديث من دون موافقتك."
+        ),
+        "settings_description": ("خصص الواجهة وطريقة تحقق PixoPDF من التحديثات."),
+        "settings_language": "لغة الواجهة",
+        "settings_language_hint": ("يُطبّق تغيير اللغة على التطبيق بأكمله بعد حفظ الإعدادات."),
+        "settings_theme": "السمة",
+        "settings_theme_hint": "اختر السمة الفاتحة أو الداكنة المناسبة لبيئتك.",
+        "settings_title": "الإعدادات",
+        "settings_updates": "التحديثات",
+        "sponsor_kofi": "الدعم عبر Ko-fi",
+        "sponsor_kofi_tooltip": "ادعم تطوير PixoPDF عبر Ko-fi",
+        "support_project": "دعم المشروع",
+        "switch_to_dark_theme": "استخدام السمة الداكنة",
+        "switch_to_light_theme": "استخدام السمة الفاتحة",
+        "theme_dark": "داكنة",
+        "theme_light": "فاتحة",
+        "update_available": "يتوفر تحديث",
+        "update_available_message": (
+            "يتوفر إصدار جديد من {app}.\n\nالإصدار المثبّت: {current}\nأحدث إصدار: {latest}"
+        ),
+        "update_check_failed": "تعذر التحقق من التحديثات",
+        "update_check_failed_message": (
+            "تعذر على PixoPDF الاتصال بخدمة التحديث. تحقق من اتصالك ثم حاول مرة أخرى."
+        ),
+        "update_checking": "جارٍ التحقق من التحديثات…",
+        "update_current": "PixoPDF محدّث",
+        "update_current_message": "{app} {version} هو أحدث إصدار متوفر.",
+        "update_later": "لاحقاً",
+        "zoom_in": "تكبير الصور المصغرة",
+        "zoom_out": "تصغير الصور المصغرة",
     }
 )
 

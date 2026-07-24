@@ -28,9 +28,17 @@ PixoPDF is a free, cross-platform PDF toolbox by [PixoGlace](https://github.com/
 - Light and dark PixoGlace themes
 - Switch instantly between French, English, Chinese and Arabic; the selected
   language is remembered and Arabic uses a right-to-left interface
+- Use native Fichier, Édition, Affichage, Outils and Aide menus with persistent
+  settings, an offline quick guide and project information
+- Check GitHub releases without blocking PDF work and disable automatic checks
+  from Settings when desired
+- Access the PixoGlace Ko-fi sponsorship link from the permanent status bar
 - Drop PDF files directly from the file manager
 
 Advanced layout, annotations, conversion, security, compression, OCR and batch processing are on the roadmap. Unavailable tools are explicitly marked “Bientôt”.
+
+Automatic update checks contact only the public GitHub releases API. No PDF,
+file path or document metadata is included in that request.
 
 ## Development
 

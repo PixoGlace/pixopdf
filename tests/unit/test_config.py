@@ -30,9 +30,7 @@ def test_application_metadata_matches_project_configuration() -> None:
 
 def test_public_links_target_the_pixopdf_project() -> None:
     assert PROJECT_URL == "https://github.com/PixoGlace/pixopdf"
-    assert UPDATE_CHECK_URL == (
-        "https://api.github.com/repos/PixoGlace/pixopdf/releases/latest"
-    )
+    assert UPDATE_CHECK_URL == ("https://api.github.com/repos/PixoGlace/pixopdf/releases/latest")
     assert DONATION_URL == KOFI_URL == "https://ko-fi.com/pixoglace"
     assert "PixoPDF" in DONATION_TEXT
 

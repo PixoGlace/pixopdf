@@ -1,5 +1,6 @@
 import ast
 from pathlib import Path
+from string import Formatter
 
 import pytest
 
@@ -29,8 +30,29 @@ def test_supported_languages_have_native_names_and_direction() -> None:
 def test_every_language_catalogue_has_the_same_complete_key_set() -> None:
     french_keys = set(TRANSLATIONS[DEFAULT_LANGUAGE])
 
-    assert len(french_keys) >= 280
+    assert len(french_keys) >= 350
     assert all(set(catalogue) == french_keys for catalogue in TRANSLATIONS.values())
+
+
+def test_every_translation_uses_the_same_placeholders() -> None:
+    formatter = Formatter()
+    french_catalogue = TRANSLATIONS[DEFAULT_LANGUAGE]
+
+    for language, catalogue in TRANSLATIONS.items():
+        for key, french_text in french_catalogue.items():
+            expected = {
+                field_name
+                for _literal, field_name, _format_spec, _conversion in formatter.parse(french_text)
+                if field_name is not None
+            }
+            actual = {
+                field_name
+                for _literal, field_name, _format_spec, _conversion in formatter.parse(
+                    catalogue[key]
+                )
+                if field_name is not None
+            }
+            assert actual == expected, f"{language}.{key}: {actual} != {expected}"
 
 
 @pytest.mark.parametrize(
@@ -52,8 +74,7 @@ def test_translate_interpolates_named_values() -> None:
         "Preview ready • 3 PDF files will be created."
     )
     assert translate("fr", "merge_ready", documents=3, pages=12) == (
-        "3 documents • 12 pages actives\n"
-        "Prêt à fusionner dans l’ordre affiché."
+        "3 documents • 12 pages actives\nPrêt à fusionner dans l’ordre affiché."
     )
 
 
@@ -79,12 +100,7 @@ def test_translate_selects_natural_count_variant(
 
 def test_workspace_static_translation_keys_are_present() -> None:
     workspace_file = (
-        Path(__file__).parents[2]
-        / "src"
-        / "pixopdf"
-        / "ui"
-        / "workspace"
-        / "workspace_page.py"
+        Path(__file__).parents[2] / "src" / "pixopdf" / "ui" / "workspace" / "workspace_page.py"
     )
     tree = ast.parse(workspace_file.read_text(encoding="utf-8"))
     referenced_keys: set[str] = set()
@@ -109,6 +125,70 @@ def test_workspace_static_translation_keys_are_present() -> None:
                 referenced_keys.add(key_node.value)
 
     assert referenced_keys <= set(TRANSLATIONS[DEFAULT_LANGUAGE])
+
+
+def test_menu_dialog_and_update_translation_keys_are_present() -> None:
+    application_keys = {
+        "about_license",
+        "about_credits",
+        "about_credits_text",
+        "about_local_privacy",
+        "about_local_privacy_detail",
+        "about_tagline",
+        "about_title",
+        "about_version",
+        "cancel",
+        "check_updates",
+        "close",
+        "download_update",
+        "external_link_error_message",
+        "external_link_error_title",
+        "help_get_started_body",
+        "help_get_started_title",
+        "help_privacy_body",
+        "help_privacy_title",
+        "help_workflow_body",
+        "help_workflow_title",
+        "home_status",
+        "keyboard_shortcuts",
+        "menu_edit",
+        "menu_file",
+        "menu_help",
+        "menu_settings",
+        "menu_tools",
+        "menu_view",
+        "project_website",
+        "quick_help_description",
+        "quick_help_title",
+        "save",
+        "settings_appearance",
+        "settings_automatic_updates",
+        "settings_automatic_updates_hint",
+        "settings_description",
+        "settings_language",
+        "settings_language_hint",
+        "settings_theme",
+        "settings_theme_hint",
+        "settings_title",
+        "settings_updates",
+        "sponsor_kofi",
+        "sponsor_kofi_tooltip",
+        "support_project",
+        "switch_to_dark_theme",
+        "switch_to_light_theme",
+        "theme_dark",
+        "theme_light",
+        "update_available",
+        "update_available_message",
+        "update_check_failed",
+        "update_check_failed_message",
+        "update_checking",
+        "update_current",
+        "update_current_message",
+        "update_later",
+    }
+
+    assert application_keys <= set(TRANSLATIONS[DEFAULT_LANGUAGE])
 
 
 def test_unknown_language_and_key_have_safe_visible_fallbacks() -> None:

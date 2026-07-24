@@ -1,5 +1,6 @@
 import sys
 
+from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
 
 from pixopdf.config import APP_NAME, ORGANIZATION, VERSION
@@ -15,4 +16,5 @@ def run() -> int:
     app.setOrganizationName(ORGANIZATION)
     window = MainWindow(ProjectService(PikePdfBackend()))
     window.show()
+    QTimer.singleShot(1200, window.check_for_updates_on_startup)
     return app.exec()

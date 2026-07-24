@@ -25,6 +25,9 @@ QLabel#dropTitle { font-size: 24px; font-weight: 800; }
 QLabel#dropDescription { color: %(muted)s; font-size: 14px; }
 QLabel#dropPrompt { color: %(accent_text)s; font-size: 14px; font-weight: 700; }
 QLabel#dropPrivacy { color: %(muted)s; font-size: 11px; }
+QLabel#kofiSponsorLabel {
+    color: %(accent_text)s; padding: 2px 8px; font-size: 11px; font-weight: 800;
+}
 QLabel#homeDropIcon { color: %(accent_text)s; font-size: 58px; }
 QLabel#homeTitle { color: %(text)s; font-size: 26px; font-weight: 800; }
 QLabel#homeDescription { color: %(muted)s; font-size: 14px; }
@@ -117,6 +120,7 @@ QFrame#contextPanel { border-left: 1px solid %(border)s; }
 QFrame#topbar { border-bottom: 1px solid %(border)s; }
 QFrame#workspaceModeBar { border-top: 1px solid %(border)s; }
 QFrame#statusbar { border-top: 1px solid %(border)s; }
+QWidget#zoomControls { background: transparent; }
 QFrame#toolCard, QFrame#actionCard, QFrame#dropZone {
     background: %(surface)s; border: 1px solid %(border)s; border-radius: 9px;
 }
@@ -331,8 +335,17 @@ QMenu {
     background: %(surface_alt)s; color: %(text)s; border: 1px solid %(border)s;
     padding: 5px;
 }
+QMenuBar {
+    background: %(surface)s; color: %(text)s; border: 0;
+    border-bottom: 1px solid %(border)s; padding: 2px 6px;
+}
+QMenuBar::item { background: transparent; border-radius: 5px; padding: 6px 10px; }
+QMenuBar::item:selected, QMenuBar::item:pressed {
+    background: %(teal_bg)s; color: %(accent_text)s;
+}
 QMenu::item { border-radius: 5px; padding: 7px 24px 7px 9px; }
 QMenu::item:selected { background: %(teal_bg)s; color: %(accent_text)s; }
+QMenu::item:disabled { color: %(disabled)s; }
 QScrollBar:vertical { background: transparent; width: 9px; }
 QScrollBar::handle:vertical { background: %(border)s; border-radius: 4px; min-height: 30px; }
 QScrollBar:horizontal { background: transparent; height: 5px; }

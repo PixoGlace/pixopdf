@@ -57,6 +57,7 @@ from PySide6.QtWidgets import (
 )
 
 from pixopdf.assets import asset_path
+from pixopdf.config import KOFI_URL
 from pixopdf.domain.page import PageChange, PageReference
 from pixopdf.domain.project import PdfProject
 from pixopdf.language_config import DEFAULT_LANGUAGE, LANGUAGES, is_rtl, translate
@@ -491,6 +492,7 @@ class WorkspacePage(QWidget):
     theme_requested = Signal()
     language_requested = Signal(str)
     mode_requested = Signal(str)
+    primary_action_changed = Signal()
 
     def __init__(self, renderer: PdfRenderer) -> None:
         super().__init__()
@@ -863,9 +865,7 @@ class WorkspacePage(QWidget):
         self.empty_detail.setObjectName("muted")
         self.empty_detail.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.empty_detail)
-        self.empty_add_button = self._button(
-            "⊞  Choisir des fichiers PDF", self.add_requested.emit
-        )
+        self.empty_add_button = self._button("⊞  Choisir des fichiers PDF", self.add_requested.emit)
         self.empty_add_button.setObjectName("primaryButton")
         layout.addWidget(self.empty_add_button, alignment=Qt.AlignmentFlag.AlignCenter)
         self.empty_blank_button = self._button(
@@ -1617,9 +1617,7 @@ class WorkspacePage(QWidget):
             self.split_validation_label.setText(self.t("split_no_active_page"))
             self.split_validation_label.setProperty("feedback", "error")
         else:
-            self.split_summary_label.setText(
-                self.tc("split_active_pages", self._active_page_count)
-            )
+            self.split_summary_label.setText(self.tc("split_active_pages", self._active_page_count))
             try:
                 groups = build_split_groups(
                     self._active_page_count,
@@ -1634,9 +1632,7 @@ class WorkspacePage(QWidget):
                 self._split_output_count = len(groups)
                 self._split_plan_valid = True
                 self._split_groups = groups
-                self.split_validation_label.setText(
-                    self.tc("split_preview_ready", len(groups))
-                )
+                self.split_validation_label.setText(self.tc("split_preview_ready", len(groups)))
                 self.split_validation_label.setProperty("feedback", "success")
         self._apply_split_preview(
             self._split_groups if self.current_mode is WorkspaceMode.SPLIT else None
@@ -1684,9 +1680,7 @@ class WorkspacePage(QWidget):
         if language_changed:
             self._blank_thumbnails.clear()
         direction = (
-            Qt.LayoutDirection.RightToLeft
-            if is_rtl(selected)
-            else Qt.LayoutDirection.LeftToRight
+            Qt.LayoutDirection.RightToLeft if is_rtl(selected) else Qt.LayoutDirection.LeftToRight
         )
         self.setLayoutDirection(direction)
         # A PDF keeps its logical page order regardless of the interface language.
@@ -1716,6 +1710,12 @@ class WorkspacePage(QWidget):
         self.theme_button.setAccessibleName(self.t("change_theme"))
         self.language_combo.setAccessibleName(self.t("language"))
         self.language_combo.setToolTip(self.t("language_tooltip"))
+        self.kofi_label.setText(
+            f'<a href="{KOFI_URL}" style="color:#14B8A6; text-decoration:none">'
+            f"♥ {self.t('sponsor_kofi')}</a>"
+        )
+        self.kofi_label.setAccessibleName(self.t("sponsor_kofi"))
+        self.kofi_label.setToolTip(self.t("sponsor_kofi_tooltip"))
 
         self.home_title.setText(self.t("home_title"))
         self.home_description.setText(self.t("home_description"))
@@ -1775,9 +1775,7 @@ class WorkspacePage(QWidget):
         self.split_ranges_radio.setText(self.t("split_ranges"))
         self.split_batch_label.setText(self.t("pages_per_file"))
         self.split_ranges_input.setPlaceholderText(self.t("split_ranges_placeholder"))
-        self.split_hint.setText(
-            self.t("split_ignored_deleted", count=self._deleted_page_count)
-        )
+        self.split_hint.setText(self.t("split_ignored_deleted", count=self._deleted_page_count))
         split_descriptions = (
             (self.split_each_card, "split_each_description"),
             (self.split_batch_card, "split_batch_description"),
@@ -1809,6 +1807,9 @@ class WorkspacePage(QWidget):
         self._update_change_legend()
         self._update_pages_count()
         self._update_selection()
+        if self._project is None:
+            self._base_status = self.t("home_status")
+            self._restore_status()
 
     def _mode_icon(self, spec: ModeSpec) -> QIcon:
         return QIcon(str(asset_path(spec.icon_asset(self._theme.value))))
@@ -1839,7 +1840,8 @@ class WorkspacePage(QWidget):
     def show_home(self) -> None:
         self._home_active = True
         self.content_stack.setCurrentWidget(self.home_view)
-        self.statusbar.hide()
+        self.statusbar.show()
+        self.zoom_controls.hide()
         self.home_button.setProperty("active", True)
         self.home_button.style().unpolish(self.home_button)
         self.home_button.style().polish(self.home_button)
@@ -1856,6 +1858,7 @@ class WorkspacePage(QWidget):
         self._home_active = False
         self.content_stack.setCurrentWidget(self.editor_view)
         self.statusbar.show()
+        self.zoom_controls.show()
         self.home_button.setProperty("active", False)
         self.home_button.style().unpolish(self.home_button)
         self.home_button.style().polish(self.home_button)
@@ -1936,6 +1939,7 @@ class WorkspacePage(QWidget):
         if self.current_mode is WorkspaceMode.SPLIT:
             can_export = can_export and self._split_plan_valid
         self.export_button.setEnabled(can_export)
+        self.primary_action_changed.emit()
 
     def _apply_split_preview(self, groups: list[list[int]] | None) -> None:
         preview_active = self.current_mode is WorkspaceMode.SPLIT and groups is not None
@@ -1960,9 +1964,7 @@ class WorkspacePage(QWidget):
             page_position = active_position + 1
             active_position += 1
             if item_groups:
-                outputs = ", ".join(
-                    self.t("pdf_number", number=number) for number in item_groups
-                )
+                outputs = ", ".join(self.t("pdf_number", number=number) for number in item_groups)
                 split_detail = self.t(
                     "split_page_outputs",
                     page=page_position,
@@ -1991,6 +1993,7 @@ class WorkspacePage(QWidget):
             tooltip = self.t("export_tooltip")
         self.export_button.setText(text)
         self.export_button.setToolTip(tooltip)
+        self.primary_action_changed.emit()
 
     def _update_change_legend(self) -> None:
         organize_mode = self.current_mode is WorkspaceMode.ORGANIZE
@@ -2016,20 +2019,49 @@ class WorkspacePage(QWidget):
         self.status.setObjectName("muted")
         layout.addWidget(self.status)
         layout.addStretch()
-        zoom_out = self._button("−", self._zoom_out, "iconButton", "Réduire les miniatures")
-        layout.addWidget(zoom_out)
+        self.zoom_controls = QWidget()
+        self.zoom_controls.setObjectName("zoomControls")
+        zoom_layout = QHBoxLayout(self.zoom_controls)
+        zoom_layout.setContentsMargins(0, 0, 0, 0)
+        zoom_layout.setSpacing(5)
+        self.zoom_out_button = self._button(
+            "−",
+            self._zoom_out,
+            "iconButton",
+            "Réduire les miniatures",
+        )
+        zoom_layout.addWidget(self.zoom_out_button)
         self.zoom_slider = QSlider(Qt.Orientation.Horizontal)
         self.zoom_slider.setRange(90, 180)
         self.zoom_slider.setValue(126)
         self.zoom_slider.setFixedWidth(110)
         self.zoom_slider.setAccessibleName("Taille des miniatures")
         self.zoom_slider.valueChanged.connect(self._set_thumbnail_size)
-        layout.addWidget(self.zoom_slider)
-        zoom_in = self._button("＋", self._zoom_in, "iconButton", "Agrandir les miniatures")
-        layout.addWidget(zoom_in)
+        zoom_layout.addWidget(self.zoom_slider)
+        self.zoom_in_button = self._button(
+            "＋",
+            self._zoom_in,
+            "iconButton",
+            "Agrandir les miniatures",
+        )
+        zoom_layout.addWidget(self.zoom_in_button)
         self.zoom_label = QLabel("100 %")
         self.zoom_label.setMinimumWidth(44)
-        layout.addWidget(self.zoom_label)
+        zoom_layout.addWidget(self.zoom_label)
+        layout.addWidget(self.zoom_controls)
+        self.kofi_label = QLabel()
+        self.kofi_label.setObjectName("kofiSponsorLabel")
+        self.kofi_label.setTextFormat(Qt.TextFormat.RichText)
+        self.kofi_label.setOpenExternalLinks(True)
+        self.kofi_label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.LinksAccessibleByMouse
+            | Qt.TextInteractionFlag.LinksAccessibleByKeyboard
+        )
+        self.kofi_label.setText(
+            f'<a href="{KOFI_URL}" style="color:#14B8A6; text-decoration:none">'
+            f"♥ {self.t('sponsor_kofi')}</a>"
+        )
+        layout.addWidget(self.kofi_label)
         return bar
 
     def selected_indices(self) -> list[int]:
@@ -2164,9 +2196,7 @@ class WorkspacePage(QWidget):
         can_edit_selection = has_selection and not contains_deleted
         search_active = bool(self.search.text().strip())
         selection_text = (
-            self.t("no_page_selected")
-            if count == 0
-            else self.tc("selected_pages_count", count)
+            self.t("no_page_selected") if count == 0 else self.tc("selected_pages_count", count)
         )
         self.selection_label.setText(selection_text)
         self.options_selection_label.setText(selection_text)
@@ -2223,9 +2253,7 @@ class WorkspacePage(QWidget):
                         total=self.pages.count(),
                     )
                 )
-                self.blank_target_label.setText(
-                    self.t("blank_after_page", page=stable_numbers[0])
-                )
+                self.blank_target_label.setText(self.t("blank_after_page", page=stable_numbers[0]))
             else:
                 self.options_selection_change.hide()
                 detail = self.t(
@@ -2260,15 +2288,11 @@ class WorkspacePage(QWidget):
             button.setEnabled(can_edit_selection)
         self.delete_button.setEnabled(has_selection)
         self.duplicate_button.setText(
-            self.t("duplicate_page")
-            if count < 2
-            else self.t("duplicate_pages_count", count=count)
+            self.t("duplicate_page") if count < 2 else self.t("duplicate_pages_count", count=count)
         )
         if all_deleted:
             self.delete_button.setText(
-                self.t("restore_page")
-                if count == 1
-                else self.t("restore_pages_count", count=count)
+                self.t("restore_page") if count == 1 else self.t("restore_pages_count", count=count)
             )
             self.delete_button.setProperty("actionKind", "restore")
             self.delete_button.setToolTip("Réintégrer les pages sélectionnées dans l’export")
@@ -2347,9 +2371,7 @@ class WorkspacePage(QWidget):
             else self.t("blank_landscape_at_end")
         )
         self.blank_a5_action.setText(
-            self.t("blank_a5_after_selection")
-            if has_selection
-            else self.t("blank_a5_at_end")
+            self.t("blank_a5_after_selection") if has_selection else self.t("blank_a5_at_end")
         )
         reordering_allowed = can_edit_selection and not search_active
         current_ids = self.pages._current_ids()
@@ -2383,9 +2405,7 @@ class WorkspacePage(QWidget):
         else:
             self.move_hint.setText(self.t("stable_indices_drag_active"))
         self.layout_summary_label.setText(
-            self.t("layout_after_selected", count=count)
-            if count
-            else self.t("layout_no_selection")
+            self.t("layout_after_selected", count=count) if count else self.t("layout_no_selection")
         )
 
     def _filter_pages(self, query: str) -> None:
@@ -2564,9 +2584,7 @@ class WorkspacePage(QWidget):
         if self.search.text().strip():
             return
         pending = len(self._thumbnail_tasks)
-        suffix = (
-            f"  •  {self.tc('previews_in_progress', pending)}" if pending else ""
-        )
+        suffix = f"  •  {self.tc('previews_in_progress', pending)}" if pending else ""
         deleted_suffix = (
             f"  •  {self.tc('deleted_pages_count', self._deleted_page_count)}"
             if self._deleted_page_count
@@ -2614,8 +2632,7 @@ class WorkspacePage(QWidget):
         selected_row = -1
         for row, document in enumerate(project.documents.values()):
             item = QListWidgetItem(
-                f"▧  {document.display_name}\n"
-                f"     {self.tc('pages_count', document.page_count)}"
+                f"▧  {document.display_name}\n     {self.tc('pages_count', document.page_count)}"
             )
             item.setData(DOCUMENT_ID_ROLE, str(document.id))
             item.setToolTip(f"{document.path}\n{self.t('original_file_unchanged')}")
@@ -2773,15 +2790,17 @@ class WorkspacePage(QWidget):
                 )
             )
         deleted_status = (
-            f"     {self.tc('deleted_pages_count', deleted_count)}"
-            if deleted_count
-            else ""
+            f"     {self.tc('deleted_pages_count', deleted_count)}" if deleted_count else ""
         )
         self._base_status = (
-            f"{self.tc('active_pages_count', self._active_page_count)}"
-            f"{deleted_status}     "
-            f"{self.t('documents_count', count=len(project.documents))}     "
-            f"{self.t('processing_local')}"
+            (
+                f"{self.tc('active_pages_count', self._active_page_count)}"
+                f"{deleted_status}     "
+                f"{self.t('documents_count', count=len(project.documents))}     "
+                f"{self.t('processing_local')}"
+            )
+            if project.documents or project.pages
+            else self.t("home_status")
         )
         self._message_token += 1
         self._restore_status()
