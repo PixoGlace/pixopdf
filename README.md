@@ -64,6 +64,25 @@ centralized in this dialog instead of occupying the workspace toolbar.
 
 Contributions are welcome; see `CONTRIBUTING.md`. PixoPDF is independent from PixoCrop and does not introduce a runtime coupling with it.
 
+## Showcase website
+
+The multilingual PixoPDF showcase lives in `docs/`. It supports French,
+English, Chinese and Arabic, light and dark themes, and the PixoGlace Ko-fi
+sponsorship link. It is deliberately built from static HTML and CSS only:
+there is no JavaScript framework, package manager or build step.
+
+```bash
+make docs-dev           # serve docs/ at http://localhost:8000
+make docs-check         # validate languages, links, assets and no-JS contract
+poetry run python scripts/capture_docs_assets.py  # refresh app screenshots
+```
+
+Pushes to `main` that change `docs/` deploy the static export through the
+GitHub Pages workflow directly, without a compilation step. The repository
+Pages source must be set to
+**GitHub Actions**. Once enabled, the public URL is
+<https://pixoglace.github.io/pixopdf/>.
+
 ## License
 
 Copyright © 2026 PixoGlace. PixoPDF is licensed under the **GNU General Public License v3.0 only** (`GPL-3.0-only`), not MIT. See `LICENSE`. Dependencies retain their respective licenses; notably Qt/PySide6 (LGPL/GPL/commercial), pikepdf (MPL-2.0), pypdfium2 (Apache-2.0/BSD-3-Clause and PDFium notices), and Pillow (HPND). Optional pyHanko, OCRmyPDF and Tesseract components retain their own licenses.

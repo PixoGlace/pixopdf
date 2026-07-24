@@ -1,8 +1,9 @@
 .DEFAULT_GOAL := help
 
 POETRY ?= poetry
+DOCS_DIR ?= docs
 
-.PHONY: help install install-all lock update run test coverage lint format format-check typecheck check build clean
+.PHONY: help install install-all lock update run test coverage lint format format-check typecheck check build clean docs-dev docs-check
 
 help: ## Afficher les commandes disponibles
 	@awk 'BEGIN {FS = ":.*##"; printf "Utilisation : make <commande>\n\n"} /^[a-zA-Z_-]+:.*?##/ {printf "  %-14s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -46,6 +47,12 @@ build: ## Générer le paquet Python et l'application PyInstaller
 	$(POETRY) install --with build
 	$(POETRY) build
 	$(POETRY) run pyinstaller --clean --noconfirm pixopdf.spec
+
+docs-dev: ## Servir le site HTML/CSS localement sur le port 8000
+	$(POETRY) run python -m http.server 8000 --directory $(DOCS_DIR)
+
+docs-check: ## Vérifier les quatre pages statiques, leurs liens et leurs assets
+	$(POETRY) run pytest tests/unit/test_docs_site.py
 
 clean: ## Supprimer les artefacts et caches locaux
 	rm -rf build dist .pytest_cache .mypy_cache .ruff_cache htmlcov .coverage
