@@ -38,6 +38,9 @@ QLabel#changeLegend[changeKind="moved"] {
 QLabel#changeLegend[changeKind="modified"] {
     color: %(amber_text)s; background: %(amber_bg)s;
 }
+QLabel#changeLegend[changeKind="deleted"] {
+    color: %(muted)s; background: %(surface_alt)s; border: 1px solid %(border)s;
+}
 QLabel#toolIcon { color: %(accent_text)s; font-weight: 700; }
 QLabel#optionHeading {
     color: %(muted)s; font-size: 10px; font-weight: 800; padding-top: 7px;
@@ -56,6 +59,9 @@ QLabel#organizeChangeChip[changeKind="moved"] {
 }
 QLabel#organizeChangeChip[changeKind="modified"] {
     color: %(amber_text)s; background: %(amber_bg)s; border: 1px solid #F59E0B;
+}
+QLabel#organizeChangeChip[changeKind="deleted"] {
+    color: %(muted)s; background: %(surface_alt)s; border: 1px solid %(border)s;
 }
 QLabel#organizeGroupTitle { font-size: 13px; font-weight: 800; }
 QLabel#organizeGroupDescription,
@@ -108,7 +114,7 @@ QFrame#organizeSelectionCard[selectionState="selected"] {
 QFrame#organizeGroupCard {
     background: %(surface_alt)s; border: 1px solid %(border)s; border-radius: 10px;
 }
-QFrame#mergeDocumentsCard {
+QFrame#mergeDocumentsCard, QFrame#documentsCard {
     background: %(surface_alt)s; border: 1px solid %(border)s; border-radius: 10px;
 }
 QFrame#organizeSearchBanner {
@@ -191,6 +197,12 @@ QPushButton#dangerButton {
 QPushButton#dangerButton:hover {
     color: %(danger_text)s; background: %(danger_hover)s; border-color: %(danger_text)s;
 }
+QPushButton#dangerButton[actionKind="restore"] {
+    color: %(accent_text)s; background: %(teal_bg)s; border-color: #14B8A6;
+}
+QPushButton#dangerButton[actionKind="restore"]:hover {
+    color: %(accent_text)s; background: %(hover)s; border-color: #14B8A6;
+}
 QPushButton#dangerButton:disabled {
     color: %(disabled)s; background: transparent; border-color: %(disabled_border)s;
 }
@@ -236,7 +248,7 @@ QListWidget {
     background: transparent; border: 0; outline: 0; padding: 6px;
     alternate-background-color: %(surface_alt)s;
 }
-QListWidget#mergeDocumentsList {
+QListWidget#mergeDocumentsList, QListWidget#documentsList {
     background: %(surface)s; border: 1px solid %(border)s; border-radius: 7px;
 }
 QListWidget QAbstractScrollArea, QListWidget::viewport,

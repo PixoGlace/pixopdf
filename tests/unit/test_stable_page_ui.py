@@ -7,9 +7,11 @@ from PySide6.QtCore import QSettings
 from PySide6.QtWidgets import QApplication
 
 from pixopdf.commands import (
+    DeletePagesCommand,
     DuplicatePagesCommand,
     InsertBlankPageCommand,
     ReorderPagesCommand,
+    RestorePagesCommand,
     RotatePagesCommand,
 )
 from pixopdf.domain.document import SourceDocument
@@ -62,6 +64,8 @@ def item_values(workspace: WorkspacePage, role: int) -> list[object]:
         (PageChange.MOVED, "Déplacée"),
         (PageChange.MODIFIED, "Modifiée"),
         (PageChange.ADDED, "Ajoutée"),
+        (PageChange.DELETED, "Supprimée"),
+        (PageChange.MODIFIED | PageChange.DELETED, "Supprimée"),
         (
             PageChange.ADDED | PageChange.MOVED | PageChange.MODIFIED,
             "Ajoutée + déplacée + modifiée",
@@ -163,6 +167,76 @@ def test_workspace_rotation_keeps_number_and_shows_modified_legend(
     assert workspace.moved_pages_legend.isHidden()
 
     workspace.shutdown()
+
+
+def test_workspace_keeps_deleted_page_visible_and_offers_restore(
+    qapp: QApplication,
+) -> None:
+    project = project_with_pages()
+    DeletePagesCommand(project, [1]).execute()
+    workspace = WorkspacePage(ImmediateRenderer())
+    restore_requests: list[list[int]] = []
+    workspace.restore_requested.connect(restore_requests.append)
+    workspace.refresh(project)
+    workspace._thread_pool.waitForDone()
+    qapp.processEvents()
+
+    assert workspace.pages.count() == 3
+    assert item_values(workspace, STABLE_NUMBER_ROLE) == [1, 2, 3]
+    assert item_values(workspace, CURRENT_POSITION_ROLE) == [1, 2, 3]
+    assert item_values(workspace, PAGE_CHANGE_ROLE) == [
+        int(PageChange.NONE),
+        int(PageChange.DELETED),
+        int(PageChange.NONE),
+    ]
+    assert "État : Supprimée" in workspace.pages.item(1).toolTip()
+    assert workspace.deleted_pages_legend.text() == "●  1 supprimée"
+    assert workspace.deleted_pages_legend.property("changeKind") == "deleted"
+    assert not workspace.deleted_pages_legend.isHidden()
+    assert "1 supprimée" in workspace.pages_count.text()
+    assert workspace.export_button.isEnabled()
+
+    workspace.pages.item(1).setSelected(True)
+    qapp.processEvents()
+
+    assert workspace.options_selection_change.text() == "Supprimée"
+    assert workspace.options_selection_change.property("changeKind") == "deleted"
+    assert workspace.delete_button.text() == "Restaurer la page"
+    assert workspace.delete_button.property("actionKind") == "restore"
+    assert not workspace.duplicate_button.isEnabled()
+    assert not workspace.rotate_left_button.isEnabled()
+    assert all(not button.isEnabled() for button in workspace._move_buttons.values())
+
+    workspace.delete_button.click()
+    assert restore_requests == [[1]]
+    workspace.shutdown()
+
+
+def test_workspace_disables_export_when_every_page_is_deleted() -> None:
+    project = project_with_pages(2)
+    DeletePagesCommand(project, [0, 1]).execute()
+    workspace = WorkspacePage(ImmediateRenderer())
+
+    workspace.refresh(project)
+
+    assert workspace.pages.count() == 2
+    assert project.active_page_count == 0
+    assert not workspace.export_button.isEnabled()
+    assert workspace.deleted_pages_legend.text() == "●  2 supprimées"
+    workspace.shutdown()
+
+
+def test_restore_reveals_previous_modified_state() -> None:
+    project = project_with_pages(1)
+    RotatePagesCommand(project, [0], 90).execute()
+    DeletePagesCommand(project, [0]).execute()
+
+    assert page_change_label(project.pages[0].changes) == "Supprimée"
+
+    RestorePagesCommand(project, [0]).execute()
+
+    assert project.pages[0].changes == PageChange.MODIFIED
+    assert page_change_label(project.pages[0].changes) == "Modifiée"
 
 
 def test_workspace_blank_and_duplicate_get_new_numbers_without_marking_shifted_pages(

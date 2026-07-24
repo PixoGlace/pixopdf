@@ -51,6 +51,15 @@ class PdfProject:
         self._next_stable_number += 1
         return number
 
+    @property
+    def active_pages(self) -> list[PageReference]:
+        """Pages that will be present in the exported PDF."""
+        return [page for page in self.pages if not page.is_deleted]
+
+    @property
+    def active_page_count(self) -> int:
+        return sum(not page.is_deleted for page in self.pages)
+
     def add_document(self, document: SourceDocument) -> None:
         if document.id in self.documents:
             return

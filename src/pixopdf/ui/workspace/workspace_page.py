@@ -74,6 +74,7 @@ DISPLAY_ROLE = Qt.ItemDataRole.UserRole + 2
 STABLE_NUMBER_ROLE = Qt.ItemDataRole.UserRole + 3
 CURRENT_POSITION_ROLE = Qt.ItemDataRole.UserRole + 4
 PAGE_CHANGE_ROLE = Qt.ItemDataRole.UserRole + 5
+DOCUMENT_ID_ROLE = Qt.ItemDataRole.UserRole + 6
 THUMBNAIL_WIDTH = 180
 THUMBNAIL_HEIGHT = 234
 PAGE_MIME_TYPE = "application/x-pixopdf-pages"
@@ -83,6 +84,8 @@ A5_PORTRAIT = (419.53, 595.28)
 
 
 def page_change_label(changes: PageChange) -> str:
+    if changes & PageChange.DELETED:
+        return "Supprimée"
     labels: list[str] = []
     if changes & PageChange.ADDED:
         labels.append("Ajoutée")
@@ -108,16 +111,34 @@ class PageItemDelegate(QStyledItemDelegate):
         if not label:
             return
 
+        deleted = bool(changes & PageChange.DELETED)
         moved_color = QColor("#14B8A6")
         modified_color = QColor("#F59E0B")
-        border_color = moved_color if changes & PageChange.MOVED else modified_color
+        deleted_color = QColor("#64748B")
+        border_color = (
+            deleted_color
+            if deleted
+            else moved_color
+            if changes & PageChange.MOVED
+            else modified_color
+        )
         badge_color = (
-            modified_color if changes & (PageChange.MODIFIED | PageChange.ADDED) else moved_color
+            deleted_color
+            if deleted
+            else modified_color
+            if changes & (PageChange.MODIFIED | PageChange.ADDED)
+            else moved_color
         )
         marker_rect = option.rect.adjusted(3, 3, -3, -3)
 
         painter.save()
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        if deleted:
+            deleted_overlay = QColor("#64748B")
+            deleted_overlay.setAlpha(165)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(deleted_overlay)
+            painter.drawRoundedRect(marker_rect, 8, 8)
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.setPen(QPen(border_color, 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
         painter.drawRoundedRect(marker_rect, 8, 8)
@@ -139,7 +160,7 @@ class PageItemDelegate(QStyledItemDelegate):
         painter.setPen(Qt.PenStyle.NoPen)
         painter.setBrush(badge_color)
         painter.drawRoundedRect(badge_rect, 6, 6)
-        painter.setPen(QColor("#172B4D"))
+        painter.setPen(QColor("#FFFFFF") if deleted else QColor("#172B4D"))
         painter.drawText(
             badge_rect,
             Qt.AlignmentFlag.AlignCenter,
@@ -157,6 +178,11 @@ class PageListWidget(QListWidget):
         self._drop_position: int | None = None
 
     def startDrag(self, _supported_actions: Qt.DropAction) -> None:
+        if any(
+            PageChange(int(item.data(PAGE_CHANGE_ROLE) or 0)) & PageChange.DELETED
+            for item in self.selectedItems()
+        ):
+            return
         selected_ids = [
             str(self.item(row).data(PAGE_ID_ROLE))
             for row in sorted(self.row(item) for item in self.selectedItems())
@@ -313,6 +339,8 @@ class PageListWidget(QListWidget):
 
 class WorkspacePage(QWidget):
     delete_requested = Signal(list)
+    restore_requested = Signal(list)
+    remove_document_requested = Signal(str)
     duplicate_requested = Signal(list)
     rotate_requested = Signal(list, int)
     reorder_requested = Signal(list)
@@ -340,8 +368,10 @@ class WorkspacePage(QWidget):
         self._thumbnail_tasks: dict[ThumbnailKey, ThumbnailTask] = {}
         self._items_by_thumbnail: dict[ThumbnailKey, list[QListWidgetItem]] = {}
         self._page_total = 0
+        self._active_page_count = 0
         self._moved_page_count = 0
         self._modified_page_count = 0
+        self._deleted_page_count = 0
         self._message_token = 0
         self._base_status = "0 page au total     0 document     Traitement local"
         self.setObjectName("appRoot")
@@ -596,6 +626,10 @@ class WorkspacePage(QWidget):
         self.modified_pages_legend.setObjectName("changeLegend")
         self.modified_pages_legend.setProperty("changeKind", "modified")
         selection_layout.addWidget(self.modified_pages_legend)
+        self.deleted_pages_legend = QLabel()
+        self.deleted_pages_legend.setObjectName("changeLegend")
+        self.deleted_pages_legend.setProperty("changeKind", "deleted")
+        selection_layout.addWidget(self.deleted_pages_legend)
         selection_layout.addStretch()
         self.select_all_button = self._button(
             "Tout sélectionner",
@@ -689,6 +723,56 @@ class WorkspacePage(QWidget):
             card_layout.addWidget(description_label)
         return card, card_layout
 
+    def _create_documents_card(
+        self,
+        accessible_name: str,
+        add_tooltip: str,
+    ) -> tuple[QFrame, QListWidget, QLabel, QPushButton, QPushButton]:
+        card = QFrame()
+        card.setObjectName("documentsCard")
+        card_layout = QVBoxLayout(card)
+        card_layout.setContentsMargins(10, 9, 10, 10)
+        card_layout.setSpacing(7)
+
+        heading = QLabel("Documents (0)")
+        heading.setObjectName("organizeGroupTitle")
+        card_layout.addWidget(heading)
+
+        documents = QListWidget()
+        documents.setObjectName("documentsList")
+        documents.setAccessibleName(accessible_name)
+        documents.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        documents.setMinimumHeight(68)
+        documents.setMaximumHeight(132)
+        documents.hide()
+        card_layout.addWidget(documents)
+
+        remove_button = self._button(
+            "Retirer ce PDF",
+            lambda: self._request_remove_document(documents),
+            "dangerButton",
+            "Retirer le document sélectionné du workspace sans supprimer le fichier original",
+        )
+        remove_button.setAccessibleName("Retirer le PDF sélectionné du workspace")
+        remove_button.setAccessibleDescription(
+            "Retire toutes ses pages du projet. Le fichier original reste intact et "
+            "l’action peut être annulée."
+        )
+        remove_button.setEnabled(False)
+        documents.itemSelectionChanged.connect(
+            lambda: remove_button.setEnabled(documents.currentItem() is not None)
+        )
+        card_layout.addWidget(remove_button)
+
+        add_button = self._button(
+            "＋  Ajouter des PDF",
+            self.add_requested.emit,
+            "organizeActionButton",
+            tooltip=add_tooltip,
+        )
+        card_layout.addWidget(add_button)
+        return card, documents, heading, remove_button, add_button
+
     def _create_organize_options(self) -> QWidget:
         page = QWidget()
         page.setObjectName("organizeOptions")
@@ -771,6 +855,18 @@ class WorkspacePage(QWidget):
         page_layout.addWidget(self.organize_search_banner)
 
         body, body_layout = self._options_body()
+
+        (
+            self.organize_documents_card,
+            self.organize_documents,
+            self.organize_documents_heading,
+            self.organize_remove_document_button,
+            self.organize_add_documents_button,
+        ) = self._create_documents_card(
+            "Documents du projet",
+            "Ajouter un ou plusieurs documents au projet",
+        )
+        body_layout.addWidget(self.organize_documents_card)
 
         self.move_group, move_layout = self._organize_card("Déplacer")
         self.move_position_label = QLabel("Sélectionnez des pages à déplacer.")
@@ -940,34 +1036,20 @@ class WorkspacePage(QWidget):
         self.merge_summary_label.setWordWrap(True)
         body_layout.addWidget(self.merge_summary_label)
 
-        self.merge_documents_card = QFrame()
-        self.merge_documents_card.setObjectName("mergeDocumentsCard")
-        documents_layout = QVBoxLayout(self.merge_documents_card)
-        documents_layout.setContentsMargins(10, 9, 10, 10)
-        documents_layout.setSpacing(7)
-        documents_title = QHBoxLayout()
-        self.documents_heading = QLabel("Documents (0)")
-        self.documents_heading.setObjectName("organizeGroupTitle")
-        documents_title.addWidget(self.documents_heading)
-        documents_title.addStretch()
-        documents_layout.addLayout(documents_title)
-        self.documents = QListWidget()
-        self.documents.setObjectName("mergeDocumentsList")
-        self.documents.setAccessibleName("Documents sources")
-        self.documents.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
-        self.documents.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.documents.setMinimumHeight(76)
-        self.documents.setMaximumHeight(164)
-        self.documents.hide()
-        documents_layout.addWidget(self.documents)
-        merge_add = self._button(
-            "＋  Ajouter des PDF",
-            self.add_requested.emit,
-            "organizeActionButton",
-            tooltip="Ajouter un ou plusieurs documents à la fusion",
+        (
+            self.merge_documents_card,
+            self.merge_documents,
+            self.merge_documents_heading,
+            self.merge_remove_document_button,
+            merge_add,
+        ) = self._create_documents_card(
+            "Documents de la fusion",
+            "Ajouter un ou plusieurs documents à la fusion",
         )
-        documents_layout.addWidget(merge_add)
         body_layout.addWidget(self.merge_documents_card)
+        # Compatibility aliases for integrations that used the original merge-only list.
+        self.documents = self.merge_documents
+        self.documents_heading = self.merge_documents_heading
 
         body_layout.addWidget(self._option_heading("ORDRE ET SORTIE"))
         self.merge_order_hint = QLabel(
@@ -1177,7 +1259,7 @@ class WorkspacePage(QWidget):
         self._update_workspace_brand()
 
     def _update_export_state(self) -> None:
-        can_export = bool(self._page_total) and (
+        can_export = bool(self._active_page_count) and (
             self.current_mode is not WorkspaceMode.MERGE or self._document_count >= 2
         )
         self.export_button.setEnabled(can_export)
@@ -1192,8 +1274,12 @@ class WorkspacePage(QWidget):
             f"{'s' if self._modified_page_count > 1 else ''} / ajoutée"
             f"{'s' if self._modified_page_count > 1 else ''}"
         )
+        self.deleted_pages_legend.setText(
+            f"●  {self._deleted_page_count} supprimée{'s' if self._deleted_page_count > 1 else ''}"
+        )
         self.moved_pages_legend.setVisible(organize_mode and self._moved_page_count > 0)
         self.modified_pages_legend.setVisible(organize_mode and self._modified_page_count > 0)
+        self.deleted_pages_legend.setVisible(organize_mode and self._deleted_page_count > 0)
 
     def _create_statusbar(self) -> QFrame:
         bar = QFrame()
@@ -1245,8 +1331,26 @@ class WorkspacePage(QWidget):
 
     def _request_delete(self) -> None:
         indices = self.selected_indices()
-        if indices:
-            self.delete_requested.emit(indices)
+        if not indices:
+            return
+        deleted_indices = [
+            index
+            for index in indices
+            if PageChange(int(self.pages.item(index).data(PAGE_CHANGE_ROLE) or 0))
+            & PageChange.DELETED
+        ]
+        if len(deleted_indices) == len(indices):
+            self.restore_requested.emit(deleted_indices)
+            return
+        self.delete_requested.emit([index for index in indices if index not in deleted_indices])
+
+    def _request_remove_document(self, documents: QListWidget) -> None:
+        item = documents.currentItem()
+        if item is None:
+            return
+        document_id = str(item.data(DOCUMENT_ID_ROLE) or "")
+        if document_id:
+            self.remove_document_requested.emit(document_id)
 
     def _request_duplicate(self) -> None:
         indices = self.selected_indices()
@@ -1293,7 +1397,10 @@ class WorkspacePage(QWidget):
         raise ValueError(f"Mode de déplacement inconnu : {mode}")
 
     def _request_move(self, mode: str) -> None:
-        if self.search.text().strip():
+        if self.search.text().strip() or any(
+            PageChange(int(item.data(PAGE_CHANGE_ROLE) or 0)) & PageChange.DELETED
+            for item in self.pages.selectedItems()
+        ):
             return
         ordered_ids = self._ordered_ids_for_move(mode)
         if ordered_ids != self.pages._current_ids():
@@ -1312,6 +1419,16 @@ class WorkspacePage(QWidget):
         selected_items = sorted(self.pages.selectedItems(), key=self.pages.row)
         count = len(selected_items)
         has_selection = count > 0
+        selected_changes = [
+            PageChange(int(item.data(PAGE_CHANGE_ROLE) or 0)) for item in selected_items
+        ]
+        deleted_selection_count = sum(
+            bool(changes & PageChange.DELETED) for changes in selected_changes
+        )
+        contains_deleted = deleted_selection_count > 0
+        all_deleted = has_selection and deleted_selection_count == count
+        active_selection_count = count - deleted_selection_count
+        can_edit_selection = has_selection and not contains_deleted
         search_active = bool(self.search.text().strip())
         selection_text = (
             "Aucune page sélectionnée"
@@ -1350,7 +1467,9 @@ class WorkspacePage(QWidget):
                     self.options_selection_change.setProperty(
                         "changeKind",
                         (
-                            "modified"
+                            "deleted"
+                            if changes & PageChange.DELETED
+                            else "modified"
                             if changes & (PageChange.MODIFIED | PageChange.ADDED)
                             else "moved"
                         ),
@@ -1367,9 +1486,13 @@ class WorkspacePage(QWidget):
                 self.blank_target_label.setText(f"A4 portrait · après Page {stable_numbers[0]}")
             else:
                 self.options_selection_change.hide()
-                self.options_selection_detail.setText(
-                    f"Pages {self._summarize_numbers(stable_numbers)} · ordre relatif conservé"
-                )
+                detail = f"Pages {self._summarize_numbers(stable_numbers)} · ordre relatif conservé"
+                if deleted_selection_count:
+                    detail += (
+                        f" · {deleted_selection_count} supprimée"
+                        f"{'s' if deleted_selection_count > 1 else ''}"
+                    )
+                self.options_selection_detail.setText(detail)
                 self.move_position_label.setText(
                     f"Positions actuelles : {self._summarize_numbers(positions)}"
                 )
@@ -1388,35 +1511,75 @@ class WorkspacePage(QWidget):
         self.organize_selection_card.style().polish(self.organize_selection_card)
 
         for button in self._selection_actions:
-            button.setEnabled(has_selection)
+            button.setEnabled(can_edit_selection)
+        self.delete_button.setEnabled(has_selection)
         self.duplicate_button.setText(
             "Dupliquer la page" if count < 2 else f"Dupliquer {count} pages"
         )
-        self.delete_button.setText("Supprimer la page" if count < 2 else f"Supprimer {count} pages")
+        if all_deleted:
+            self.delete_button.setText(
+                "Restaurer la page" if count == 1 else f"Restaurer {count} pages"
+            )
+            self.delete_button.setProperty("actionKind", "restore")
+            self.delete_button.setToolTip("Réintégrer les pages sélectionnées dans l’export")
+        else:
+            delete_label_count = active_selection_count or count
+            self.delete_button.setText(
+                "Supprimer la page"
+                if delete_label_count == 1
+                else f"Supprimer {delete_label_count} pages"
+            )
+            self.delete_button.setProperty("actionKind", "delete")
+            self.delete_button.setToolTip(
+                "Marquer les pages sélectionnées comme supprimées (Suppr)"
+            )
+        self.delete_button.style().unpolish(self.delete_button)
+        self.delete_button.style().polish(self.delete_button)
         if has_selection:
             selection_wording = (
                 "la page sélectionnée" if count == 1 else f"les {count} pages sélectionnées"
             )
-            self.duplicate_button.setAccessibleName(
-                "Dupliquer la page sélectionnée"
-                if count == 1
-                else f"Dupliquer les {count} pages sélectionnées"
-            )
-            self.delete_button.setAccessibleName(
-                "Supprimer la page sélectionnée"
-                if count == 1
-                else f"Supprimer les {count} pages sélectionnées"
-            )
-            self.duplicate_button.setAccessibleDescription(
-                f"Crée une copie de {selection_wording}."
-            )
-            self.delete_button.setAccessibleDescription(f"Retire {selection_wording} du projet.")
-            self.rotate_left_button.setAccessibleDescription(
-                f"Tourne {selection_wording} de 90 degrés vers la gauche."
-            )
-            self.rotate_right_button.setAccessibleDescription(
-                f"Tourne {selection_wording} de 90 degrés vers la droite."
-            )
+            if can_edit_selection:
+                self.duplicate_button.setAccessibleName(
+                    "Dupliquer la page sélectionnée"
+                    if count == 1
+                    else f"Dupliquer les {count} pages sélectionnées"
+                )
+                self.duplicate_button.setAccessibleDescription(
+                    f"Crée une copie de {selection_wording}."
+                )
+                self.rotate_left_button.setAccessibleDescription(
+                    f"Tourne {selection_wording} de 90 degrés vers la gauche."
+                )
+                self.rotate_right_button.setAccessibleDescription(
+                    f"Tourne {selection_wording} de 90 degrés vers la droite."
+                )
+            else:
+                deleted_description = (
+                    "Restaurez les pages supprimées avant de les modifier ou de les déplacer."
+                )
+                self.duplicate_button.setAccessibleName("Dupliquer des pages")
+                self.duplicate_button.setAccessibleDescription(deleted_description)
+                self.rotate_left_button.setAccessibleDescription(deleted_description)
+                self.rotate_right_button.setAccessibleDescription(deleted_description)
+            if all_deleted:
+                self.delete_button.setAccessibleName(
+                    "Restaurer la page supprimée"
+                    if count == 1
+                    else f"Restaurer les {count} pages supprimées"
+                )
+                self.delete_button.setAccessibleDescription(
+                    "Réintègre la sélection dans le PDF exporté."
+                )
+            else:
+                self.delete_button.setAccessibleName(
+                    "Supprimer la page sélectionnée"
+                    if active_selection_count == 1
+                    else f"Supprimer les {active_selection_count} pages actives sélectionnées"
+                )
+                self.delete_button.setAccessibleDescription(
+                    "Conserve les vignettes en gris et exclut ces pages du PDF exporté."
+                )
         else:
             selection_wording = "la sélection"
             unavailable_description = "Sélectionnez au moins une page pour activer cette action."
@@ -1438,7 +1601,7 @@ class WorkspacePage(QWidget):
             if has_selection
             else "A5 portrait · à la fin du document"
         )
-        reordering_allowed = has_selection and not search_active
+        reordering_allowed = can_edit_selection and not search_active
         current_ids = self.pages._current_ids()
         move_labels = {
             "start": ("Placer au début", "La sélection est déjà au début."),
@@ -1455,6 +1618,8 @@ class WorkspacePage(QWidget):
                 description = "Effacez la recherche pour réorganiser les pages."
             elif not has_selection:
                 description = "Sélectionnez au moins une page."
+            elif contains_deleted:
+                description = "Restaurez les pages supprimées avant de les déplacer."
             elif not changes_order:
                 description = boundary_reason
             else:
@@ -1645,7 +1810,13 @@ class WorkspacePage(QWidget):
         pending = len(self._thumbnail_tasks)
         suffix = f"  •  {pending} aperçu(s) en cours" if pending else ""
         plural = "s" if self._page_total != 1 else ""
-        self.pages_count.setText(f"{self._page_total} page{plural}{suffix}")
+        deleted_suffix = (
+            f"  •  {self._deleted_page_count} supprimée"
+            f"{'s' if self._deleted_page_count > 1 else ''}"
+            if self._deleted_page_count
+            else ""
+        )
+        self.pages_count.setText(f"{self._page_total} page{plural}{deleted_suffix}{suffix}")
 
     @staticmethod
     def _page_display_text(page: PageReference, current_position: int) -> str:
@@ -1673,22 +1844,56 @@ class WorkspacePage(QWidget):
             lines.append(f"État : {change_label}")
         return "\n".join(lines)
 
+    @staticmethod
+    def _populate_documents_list(
+        documents: QListWidget,
+        heading: QLabel,
+        remove_button: QPushButton,
+        project: PdfProject,
+    ) -> None:
+        current_item = documents.currentItem()
+        selected_id = str(current_item.data(DOCUMENT_ID_ROLE)) if current_item is not None else ""
+        documents.clear()
+        selected_row = -1
+        for row, document in enumerate(project.documents.values()):
+            item = QListWidgetItem(
+                f"▧  {document.display_name}\n"
+                f"     {document.page_count} page{'s' if document.page_count != 1 else ''}"
+            )
+            item.setData(DOCUMENT_ID_ROLE, str(document.id))
+            item.setToolTip(f"{document.path}\nLe fichier original ne sera jamais supprimé.")
+            documents.addItem(item)
+            if str(document.id) == selected_id:
+                selected_row = row
+        heading.setText(f"Documents ({len(project.documents)})")
+        documents.setVisible(bool(project.documents))
+        if selected_row >= 0:
+            documents.setCurrentRow(selected_row)
+        remove_button.setEnabled(documents.currentItem() is not None)
+
     def refresh(self, project: PdfProject) -> None:
         project.ensure_page_numbers()
         selected_ids = self.selected_page_ids()
         scroll_position = self.pages.verticalScrollBar().value()
-        self.documents.clear()
-        for document in project.documents.values():
-            item = QListWidgetItem(f"▧  {document.display_name}\n     {document.page_count} pages")
-            item.setToolTip(str(document.path))
-            self.documents.addItem(item)
-        self.documents_heading.setText(f"Documents ({len(project.documents)})")
-        self.documents.setVisible(bool(project.documents))
+        for documents, heading, remove_button in (
+            (
+                self.organize_documents,
+                self.organize_documents_heading,
+                self.organize_remove_document_button,
+            ),
+            (
+                self.merge_documents,
+                self.merge_documents_heading,
+                self.merge_remove_document_button,
+            ),
+        ):
+            self._populate_documents_list(documents, heading, remove_button, project)
         self._document_count = len(project.documents)
         self._items_by_thumbnail.clear()
         self.pages.clear()
         moved_count = 0
         modified_count = 0
+        deleted_count = 0
         for index, page in enumerate(project.pages):
             current_position = index + 1
             display_text = self._page_display_text(page, current_position)
@@ -1699,12 +1904,17 @@ class WorkspacePage(QWidget):
             item.setData(CURRENT_POSITION_ROLE, current_position)
             item.setData(PAGE_CHANGE_ROLE, int(page.changes))
             item.setTextAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignBottom)
-            moved_count += int(bool(page.changes & PageChange.MOVED))
-            modified_count += int(bool(page.changes & (PageChange.MODIFIED | PageChange.ADDED)))
+            if page.is_deleted:
+                deleted_count += 1
+            else:
+                moved_count += int(bool(page.changes & PageChange.MOVED))
+                modified_count += int(bool(page.changes & (PageChange.MODIFIED | PageChange.ADDED)))
+            deleted_search = " supprimée" if page.is_deleted else ""
             if page.is_blank:
                 item.setData(
                     SEARCH_ROLE,
-                    f"page {page.stable_number} position {current_position} page blanche",
+                    f"page {page.stable_number} position {current_position} "
+                    f"page blanche{deleted_search}",
                 )
                 page_size = page.blank_size or A4_PORTRAIT
                 item.setToolTip(
@@ -1721,7 +1931,8 @@ class WorkspacePage(QWidget):
                 if page.source_page_index is None:
                     item.setData(
                         SEARCH_ROLE,
-                        f"page {page.stable_number} position {current_position} référence invalide",
+                        f"page {page.stable_number} position {current_position} "
+                        f"référence invalide{deleted_search}",
                     )
                     item.setToolTip(
                         self._page_tooltip(
@@ -1734,7 +1945,8 @@ class WorkspacePage(QWidget):
                 else:
                     search_text = (
                         f"page {page.stable_number} position {current_position} "
-                        f"{source.display_name} page source {page.source_page_index + 1}"
+                        f"{source.display_name} page source "
+                        f"{page.source_page_index + 1}{deleted_search}"
                     )
                     item.setData(SEARCH_ROLE, search_text)
                     item.setToolTip(
@@ -1761,8 +1973,10 @@ class WorkspacePage(QWidget):
             if str(page.id) in selected_ids:
                 item.setSelected(True)
         self._page_total = len(project.pages)
+        self._active_page_count = project.active_page_count
         self._moved_page_count = moved_count
         self._modified_page_count = modified_count
+        self._deleted_page_count = deleted_count
         self._update_change_legend()
         if project.documents and not project.pages:
             self.empty_title.setText("Toutes les pages ont été retirées")
@@ -1783,17 +1997,23 @@ class WorkspacePage(QWidget):
             self.merge_summary_label.setText("Ajoutez au moins deux documents PDF.")
         elif len(project.documents) == 1:
             self.merge_summary_label.setText(
-                f"1 document • {len(project.pages)} page(s)\n"
+                f"1 document • {self._active_page_count} page(s) active(s)\n"
                 "Ajoutez un autre PDF pour créer une fusion."
             )
         else:
             self.merge_summary_label.setText(
-                f"{len(project.documents)} documents • {len(project.pages)} pages\n"
+                f"{len(project.documents)} documents • "
+                f"{self._active_page_count} pages actives\n"
                 "Prêt à fusionner dans l’ordre affiché."
             )
+        deleted_status = (
+            f"     {deleted_count} supprimée{'s' if deleted_count > 1 else ''}"
+            if deleted_count
+            else ""
+        )
         self._base_status = (
-            f"{len(project.pages)} pages au total     {len(project.documents)} document(s)     "
-            "Documents traités localement"
+            f"{self._active_page_count} pages actives{deleted_status}     "
+            f"{len(project.documents)} document(s)     Documents traités localement"
         )
         self._message_token += 1
         self._restore_status()

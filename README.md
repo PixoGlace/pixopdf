@@ -9,7 +9,8 @@ PixoPDF is a free, cross-platform PDF toolbox by [PixoGlace](https://github.com/
 ## Current MVP
 
 - Open one or more PDFs and build a virtual page project
-- Select, rotate, duplicate, delete and reorder pages without touching source files
+- Select, rotate, duplicate, reorder and mark pages as deleted without touching source files
+- Keep deleted pages visible in gray and restore them directly before export
 - Keep page numbers stable while teal/amber badges identify moved or modified pages
 - Insert A4/A5 blank pages, including landscape pages, anywhere in the project
 - Undo and redo edits

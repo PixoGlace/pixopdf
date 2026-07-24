@@ -1,8 +1,10 @@
 from pathlib import Path
 
+import pytest
 from PySide6.QtCore import QEventLoop, QSettings, QTimer
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QFileDialog
 
+from pixopdf.domain.document import SourceDocument
 from pixopdf.domain.project import PdfProject
 from pixopdf.pdf.backend import PdfBackend
 from pixopdf.services.project_service import ProjectService
@@ -11,10 +13,14 @@ from pixopdf.ui.tool_modes import WorkspaceMode
 
 
 class WindowBackend(PdfBackend):
+    def __init__(self) -> None:
+        self.exported_projects: list[PdfProject] = []
+
     def page_count(self, path: Path) -> int:
         return 2
 
     def export(self, project: PdfProject, destination: Path) -> None:
+        self.exported_projects.append(project)
         destination.write_bytes(b"exported")
 
 
@@ -110,7 +116,7 @@ def test_legacy_blank_page_tool_uses_workspace_and_selects_page(
     close_clean(window)
 
 
-def test_duplicate_selects_copies_and_delete_selects_neighbor(
+def test_duplicate_and_soft_delete_keep_selected_thumbnail(
     tmp_path: Path,
     qapp: QApplication,
 ) -> None:
@@ -134,9 +140,115 @@ def test_duplicate_selects_copies_and_delete_selects_neighbor(
     window.workspace.delete_requested.emit([2])
     qapp.processEvents()
 
-    assert [page.id for page in window.project.pages] == original_ids
-    assert window.workspace.selected_page_ids() == {str(original_ids[2])}
+    assert len(window.project.pages) == 4
+    assert window.project.pages[2].id == copy_page.id
+    assert window.project.pages[2].is_deleted
+    assert window.project.active_page_count == 3
+    assert window.workspace.selected_page_ids() == {str(copy_page.id)}
+    assert window.workspace.delete_button.text() == "Restaurer la page"
+    assert window.workspace.delete_button.property("actionKind") == "restore"
+    assert "marquée(s) supprimée(s)" in window.workspace.status.text()
 
+    window.workspace.delete_button.click()
+    qapp.processEvents()
+
+    assert not window.project.pages[2].is_deleted
+    assert window.project.active_page_count == 4
+    assert window.workspace.selected_page_ids() == {str(copy_page.id)}
+
+    close_clean(window)
+
+
+def test_export_snapshot_excludes_deleted_pages(
+    tmp_path: Path,
+    qapp: QApplication,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    QSettings.setDefaultFormat(QSettings.Format.IniFormat)
+    QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, str(tmp_path))
+    backend = WindowBackend()
+    window = MainWindow(ProjectService(backend))
+    window.insert_blank_page(0, 595.28, 841.89)
+    window.insert_blank_page(1, 595.28, 841.89)
+    window.delete_pages([0])
+    destination = tmp_path / "soft-delete-export.pdf"
+    monkeypatch.setattr(
+        QFileDialog,
+        "getSaveFileName",
+        lambda *_args, **_kwargs: (str(destination), ""),
+    )
+
+    window.export()
+    wait_for_operation(window)
+    qapp.processEvents()
+
+    assert len(window.project.pages) == 2
+    assert window.project.pages[0].is_deleted
+    assert len(backend.exported_projects) == 1
+    assert len(backend.exported_projects[0].pages) == 1
+    assert all(not page.is_deleted for page in backend.exported_projects[0].pages)
+    close_clean(window)
+
+
+def test_export_with_only_deleted_pages_opens_no_dialog(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    QSettings.setDefaultFormat(QSettings.Format.IniFormat)
+    QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, str(tmp_path))
+    backend = WindowBackend()
+    window = MainWindow(ProjectService(backend))
+    window.insert_blank_page(0, 595.28, 841.89)
+    window.delete_pages([0])
+    dialog_calls: list[bool] = []
+    monkeypatch.setattr(
+        QFileDialog,
+        "getSaveFileName",
+        lambda *_args, **_kwargs: (
+            dialog_calls.append(True) or str(tmp_path / "unexpected.pdf"),
+            "",
+        ),
+    )
+
+    window.export()
+
+    assert dialog_calls == []
+    assert backend.exported_projects == []
+    close_clean(window)
+
+
+def test_organize_document_remove_action_removes_source_pages_and_undo_restores(
+    tmp_path: Path,
+    qapp: QApplication,
+) -> None:
+    QSettings.setDefaultFormat(QSettings.Format.IniFormat)
+    QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, str(tmp_path))
+    window = MainWindow(ProjectService(WindowBackend()))
+    first = SourceDocument.create(tmp_path / "first.pdf", 2)
+    second = SourceDocument.create(tmp_path / "second.pdf", 1)
+    window.project.add_document(first)
+    window.project.add_document(second)
+    original_pages = list(window.project.pages)
+    window.commands.mark_clean()
+    window.refresh()
+
+    assert window.workspace.organize_documents.count() == 2
+    window.workspace.organize_documents.setCurrentRow(0)
+    qapp.processEvents()
+    window.workspace.organize_remove_document_button.click()
+    qapp.processEvents()
+
+    assert list(window.project.documents) == [second.id]
+    assert all(page.source_document_id != first.id for page in window.project.pages)
+    assert len(window.project.pages) == 1
+    assert "first.pdf retiré du workspace" in window.workspace.status.text()
+
+    window.commands.undo()
+    qapp.processEvents()
+
+    assert list(window.project.documents) == [first.id, second.id]
+    assert window.project.pages == original_pages
+    assert window.workspace.organize_documents.count() == 2
     close_clean(window)
 
 

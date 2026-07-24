@@ -10,6 +10,7 @@ class PageChange(IntFlag):
     MOVED = auto()
     MODIFIED = auto()
     ADDED = auto()
+    DELETED = auto()
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,6 +53,10 @@ class PageReference:
     @property
     def is_blank(self) -> bool:
         return self.source_document_id is None
+
+    @property
+    def is_deleted(self) -> bool:
+        return bool(self.changes & PageChange.DELETED)
 
     def rotated(self, degrees: int) -> "PageReference":
         if degrees % 90:

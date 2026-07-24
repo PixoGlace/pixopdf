@@ -25,7 +25,9 @@ from pixopdf.commands import (
     DeletePagesCommand,
     DuplicatePagesCommand,
     InsertBlankPageCommand,
+    RemoveDocumentCommand,
     ReorderPagesCommand,
+    RestorePagesCommand,
     RotatePagesCommand,
 )
 from pixopdf.constants import SUPPORTED_PDF_FILTER
@@ -115,6 +117,8 @@ class MainWindow(QMainWindow):
         self.workspace.add_requested.connect(self.open_files)
         self.workspace.export_requested.connect(self.export)
         self.workspace.delete_requested.connect(self.delete_pages)
+        self.workspace.restore_requested.connect(self.restore_pages)
+        self.workspace.remove_document_requested.connect(self.remove_document)
         self.workspace.duplicate_requested.connect(self.duplicate_pages)
         self.workspace.rotate_requested.connect(self.rotate_pages)
         self.workspace.reorder_requested.connect(self.reorder_pages)
@@ -228,20 +232,60 @@ class MainWindow(QMainWindow):
         )
 
     def delete_pages(self, indices: list[int]) -> None:
-        if indices and self._active_task is None:
-            next_index = min(indices[0], len(self.project.pages) - len(set(indices)) - 1)
-            self.commands.execute(DeletePagesCommand(self.project, indices))
-            if self.project.pages:
-                next_index = max(0, min(next_index, len(self.project.pages) - 1))
-                self.workspace.select_page_ids([self.project.pages[next_index].id])
-            self.workspace.show_message(f"{len(indices)} page(s) retirée(s) • Ctrl+Z pour annuler")
+        active_indices = [
+            index
+            for index in sorted(set(indices))
+            if 0 <= index < len(self.project.pages) and not self.project.pages[index].is_deleted
+        ]
+        if active_indices and self._active_task is None:
+            selected_ids = [self.project.pages[index].id for index in active_indices]
+            self.commands.execute(DeletePagesCommand(self.project, active_indices))
+            self.workspace.select_page_ids(selected_ids)
+            self.workspace.show_message(
+                f"{len(active_indices)} page(s) marquée(s) supprimée(s) • "
+                "elles ne seront pas exportées"
+            )
+
+    def restore_pages(self, indices: list[int]) -> None:
+        deleted_indices = [
+            index
+            for index in sorted(set(indices))
+            if 0 <= index < len(self.project.pages) and self.project.pages[index].is_deleted
+        ]
+        if deleted_indices and self._active_task is None:
+            selected_ids = [self.project.pages[index].id for index in deleted_indices]
+            self.commands.execute(RestorePagesCommand(self.project, deleted_indices))
+            self.workspace.select_page_ids(selected_ids)
+            self.workspace.show_message(f"{len(deleted_indices)} page(s) restaurée(s)")
+
+    def remove_document(self, document_id: str) -> None:
+        if self._active_task is not None:
+            return
+        try:
+            identifier = UUID(document_id)
+        except ValueError:
+            return
+        document = self.project.documents.get(identifier)
+        if document is None:
+            return
+        command = RemoveDocumentCommand(self.project, identifier)
+        self.commands.execute(command)
+        self.workspace.show_message(
+            f"{document.display_name} retiré du workspace • "
+            f"{command.removed_page_count} page(s) retirée(s) • Ctrl+Z pour annuler"
+        )
 
     def duplicate_pages(self, indices: list[int]) -> None:
-        if indices and self._active_task is None:
-            command = DuplicatePagesCommand(self.project, indices)
+        active_indices = [
+            index
+            for index in sorted(set(indices))
+            if 0 <= index < len(self.project.pages) and not self.project.pages[index].is_deleted
+        ]
+        if active_indices and self._active_task is None:
+            command = DuplicatePagesCommand(self.project, active_indices)
             self.commands.execute(command)
             self.workspace.select_page_ids(command.inserted_page_ids)
-            self.workspace.show_message(f"{len(indices)} page(s) dupliquée(s)")
+            self.workspace.show_message(f"{len(active_indices)} page(s) dupliquée(s)")
 
     def insert_blank_page(self, index: int, width: float, height: float) -> None:
         if self._active_task is not None:
@@ -261,10 +305,17 @@ class MainWindow(QMainWindow):
         return "A4"
 
     def rotate_pages(self, indices: list[int], degrees: int) -> None:
-        if indices and self._active_task is None:
-            self.commands.execute(RotatePagesCommand(self.project, indices, degrees))
+        active_indices = [
+            index
+            for index in sorted(set(indices))
+            if 0 <= index < len(self.project.pages) and not self.project.pages[index].is_deleted
+        ]
+        if active_indices and self._active_task is None:
+            self.commands.execute(RotatePagesCommand(self.project, active_indices, degrees))
             direction = "gauche" if degrees < 0 else "droite"
-            self.workspace.show_message(f"{len(indices)} page(s) tournée(s) vers la {direction}")
+            self.workspace.show_message(
+                f"{len(active_indices)} page(s) tournée(s) vers la {direction}"
+            )
 
     def reorder_pages(self, ordered_values: list[object]) -> None:
         if self._active_task is not None:
@@ -301,7 +352,7 @@ class MainWindow(QMainWindow):
         self.workspace.show_message("Ordre des pages mis à jour • Ctrl+Z pour annuler")
 
     def export(self) -> None:
-        if not self.project.pages or self._active_task is not None:
+        if not self.project.active_page_count or self._active_task is not None:
             return
         if self.active_mode is WorkspaceMode.MERGE and len(self.project.documents) < 2:
             self.workspace.show_message(
@@ -336,7 +387,7 @@ class MainWindow(QMainWindow):
             return
         snapshot = PdfProject(
             documents=dict(self.project.documents),
-            pages=list(self.project.pages),
+            pages=list(self.project.active_pages),
             modified=False,
         )
         self.workspace.show_message("Export du PDF en cours…")

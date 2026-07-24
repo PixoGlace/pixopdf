@@ -122,6 +122,43 @@ def test_workspace_merge_and_layout_actions_emit_expected_requests(
     workspace.shutdown()
 
 
+def test_documents_are_visible_and_removable_in_organize_and_merge(
+    qapp: QApplication,
+) -> None:
+    project = merge_ready_project()
+    workspace = WorkspacePage(NoRenderRenderer())
+    remove_requests: list[str] = []
+    workspace.remove_document_requested.connect(remove_requests.append)
+
+    workspace.refresh(project)
+    qapp.processEvents()
+
+    assert workspace.current_mode is WorkspaceMode.ORGANIZE
+    assert workspace.organize_documents.count() == 2
+    assert workspace.organize_documents.isVisibleTo(workspace)
+    assert workspace.organize_documents_heading.text() == "Documents (2)"
+    assert not workspace.organize_remove_document_button.isEnabled()
+
+    first_document = next(iter(project.documents.values()))
+    workspace.organize_documents.setCurrentRow(0)
+    qapp.processEvents()
+    assert workspace.organize_remove_document_button.isEnabled()
+    workspace.organize_remove_document_button.click()
+    assert remove_requests == [str(first_document.id)]
+
+    workspace.set_mode(WorkspaceMode.MERGE)
+    assert workspace.merge_documents.count() == 2
+    assert workspace.merge_documents_heading.text() == "Documents (2)"
+    workspace.merge_documents.setCurrentRow(1)
+    qapp.processEvents()
+    workspace.merge_remove_document_button.click()
+    assert remove_requests == [
+        str(first_document.id),
+        str(list(project.documents.values())[1].id),
+    ]
+    workspace.shutdown()
+
+
 def test_workspace_keeps_mode_and_panel_after_refresh(qapp: QApplication) -> None:
     workspace = WorkspacePage(NoRenderRenderer())
     workspace.set_mode(WorkspaceMode.MERGE)

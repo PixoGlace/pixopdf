@@ -7,7 +7,9 @@ page UUID, so drag-and-drop and subsequent actions always address the domain pag
 the user can see. Each reference also owns a monotonic display number, distinct
 from its source index and current position, plus reversible visual change flags.
 Moving, rotating, duplicating or inserting a page therefore never renumbers an
-existing page, and undo/redo restores both content state and visual markers.
+existing page. Deleting is also virtual: the page stays in the grid with a gray
+marker and is omitted only from the export snapshot. Undo/redo and direct restore
+recover both content state and visual markers.
 
 `PdfBackend` isolates structural PDF operations; `PdfRenderer` isolates rendering.
 Import, export and thumbnail generation run in `QThreadPool` tasks so the Qt event

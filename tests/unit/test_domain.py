@@ -5,10 +5,13 @@ from pixopdf.commands import (
     DeletePagesCommand,
     DuplicatePagesCommand,
     InsertBlankPageCommand,
+    RemoveDocumentCommand,
     ReorderPagesCommand,
+    RestorePagesCommand,
     RotatePagesCommand,
 )
 from pixopdf.domain.document import SourceDocument
+from pixopdf.domain.page import PageChange
 from pixopdf.domain.project import PdfProject
 
 
@@ -23,15 +26,72 @@ def test_add_document_creates_virtual_pages() -> None:
     assert [p.source_page_index for p in project.pages] == [0, 1, 2]
 
 
+def test_remove_document_and_its_pages_is_undoable() -> None:
+    project = PdfProject()
+    first = SourceDocument.create(Path("first.pdf"), 2)
+    second = SourceDocument.create(Path("second.pdf"), 1)
+    project.add_document(first)
+    project.add_document(second)
+    InsertBlankPageCommand(project, index=1).execute()
+    original_pages = list(project.pages)
+    stack = CommandStack()
+    command = RemoveDocumentCommand(project, first.id)
+
+    stack.execute(command)
+
+    assert list(project.documents) == [second.id]
+    assert command.removed_page_count == 2
+    assert all(page.source_document_id != first.id for page in project.pages)
+    assert len(project.pages) == 2
+    assert project.pages[0].is_blank
+
+    stack.undo()
+
+    assert list(project.documents) == [first.id, second.id]
+    assert project.pages == original_pages
+
+    stack.redo()
+    assert list(project.documents) == [second.id]
+    assert all(page.source_document_id != first.id for page in project.pages)
+
+
 def test_delete_undo_redo() -> None:
     project = project_with_pages()
     stack = CommandStack()
+    stable_numbers = [page.stable_number for page in project.pages]
+
     stack.execute(DeletePagesCommand(project, [1]))
-    assert len(project.pages) == 2
+    assert len(project.pages) == 3
+    assert project.active_page_count == 2
+    assert project.pages[1].changes == PageChange.DELETED
+    assert [page.stable_number for page in project.pages] == stable_numbers
+
     stack.undo()
     assert len(project.pages) == 3
+    assert project.active_page_count == 3
+    assert project.pages[1].changes == PageChange.NONE
+
     stack.redo()
-    assert len(project.pages) == 2
+    assert len(project.pages) == 3
+    assert project.active_page_count == 2
+    assert project.pages[1].changes == PageChange.DELETED
+
+
+def test_restore_deleted_page_is_undoable() -> None:
+    project = project_with_pages()
+    DeletePagesCommand(project, [1]).execute()
+    stack = CommandStack()
+
+    stack.execute(RestorePagesCommand(project, [1]))
+    assert not project.pages[1].is_deleted
+    assert project.active_page_count == 3
+
+    stack.undo()
+    assert project.pages[1].is_deleted
+    assert project.active_page_count == 2
+
+    stack.redo()
+    assert not project.pages[1].is_deleted
 
 
 def test_rotation_is_virtual_and_undoable() -> None:

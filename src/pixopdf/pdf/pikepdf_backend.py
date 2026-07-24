@@ -25,6 +25,9 @@ class PikePdfBackend(PdfBackend):
             raise PdfOpenError(f"Impossible de lire {path.name}.") from exc
 
     def export(self, project: PdfProject, destination: Path) -> None:
+        active_pages = project.active_pages
+        if not active_pages:
+            raise PdfExportError("Le projet ne contient aucune page active à exporter")
         destination.parent.mkdir(parents=True, exist_ok=True)
         descriptor, temporary_name = tempfile.mkstemp(
             prefix=f".{destination.stem}-",
@@ -37,7 +40,7 @@ class PikePdfBackend(PdfBackend):
             output = pikepdf.Pdf.new()
             opened: dict[Path, pikepdf.Pdf] = {}
             try:
-                for page in project.pages:
+                for page in active_pages:
                     if page.is_blank:
                         output.add_blank_page(page_size=page.blank_size or (595.28, 841.89))
                     else:

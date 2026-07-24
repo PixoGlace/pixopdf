@@ -11,20 +11,61 @@ from .base import Command
 class DeletePagesCommand(Command):
     project: PdfProject
     indices: list[int]
-    _removed: list[tuple[int, PageReference]] = field(default_factory=list, init=False)
+    _previous: list[tuple[int, PageReference]] = field(default_factory=list, init=False)
 
     def execute(self) -> None:
-        valid = sorted({index for index in self.indices if 0 <= index < len(self.project.pages)})
-        self._removed = [(index, self.project.pages[index]) for index in valid]
-        for index, _page in reversed(self._removed):
-            del self.project.pages[index]
-        if self._removed:
+        valid = sorted(
+            {
+                index
+                for index in self.indices
+                if 0 <= index < len(self.project.pages) and not self.project.pages[index].is_deleted
+            }
+        )
+        self._previous = [(index, self.project.pages[index]) for index in valid]
+        for index, page in self._previous:
+            self.project.pages[index] = replace(
+                page,
+                changes=page.changes | PageChange.DELETED,
+            )
+        if self._previous:
             self.project.modified = True
 
     def undo(self) -> None:
-        for index, page in self._removed:
-            self.project.pages.insert(index, page)
-        if self._removed:
+        for index, page in self._previous:
+            if 0 <= index < len(self.project.pages):
+                self.project.pages[index] = page
+        if self._previous:
+            self.project.modified = True
+
+
+@dataclass
+class RestorePagesCommand(Command):
+    project: PdfProject
+    indices: list[int]
+    _previous: list[tuple[int, PageReference]] = field(default_factory=list, init=False)
+
+    def execute(self) -> None:
+        valid = sorted(
+            {
+                index
+                for index in self.indices
+                if 0 <= index < len(self.project.pages) and self.project.pages[index].is_deleted
+            }
+        )
+        self._previous = [(index, self.project.pages[index]) for index in valid]
+        for index, page in self._previous:
+            self.project.pages[index] = replace(
+                page,
+                changes=page.changes & ~PageChange.DELETED,
+            )
+        if self._previous:
+            self.project.modified = True
+
+    def undo(self) -> None:
+        for index, page in self._previous:
+            if 0 <= index < len(self.project.pages):
+                self.project.pages[index] = page
+        if self._previous:
             self.project.modified = True
 
 
