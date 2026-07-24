@@ -144,6 +144,7 @@ def test_split_panel_validates_strategies_and_emits_request(
     workspace.split_batch_size.setValue(2)
     qapp.processEvents()
     assert "3 fichiers PDF" in workspace.split_validation_label.text()
+    assert workspace.export_button.text() == "Diviser en 3 PDF"
     workspace.split_execute_button.click()
     assert split_requests == [("batch", 2, "")]
 

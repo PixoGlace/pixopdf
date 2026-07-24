@@ -8,6 +8,8 @@ from pixopdf.domain.document import SourceDocument
 from pixopdf.domain.project import PdfProject
 from pixopdf.pdf.exceptions import PdfExportError
 from pixopdf.pdf.pikepdf_backend import PikePdfBackend
+from pixopdf.services.project_service import ProjectService
+from pixopdf.services.split_service import SplitStrategy, build_split_groups
 
 
 def test_export_opens_each_source_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -83,3 +85,46 @@ def test_export_rejects_project_with_only_deleted_pages(tmp_path: Path) -> None:
         PikePdfBackend().export(project, destination)
 
     assert not destination.exists()
+
+
+def test_real_backend_splits_pages_into_fixed_size_batches(tmp_path: Path) -> None:
+    source = tmp_path / "batch-source.pdf"
+    destination = tmp_path / "parts"
+    pdf = pikepdf.Pdf.new()
+    for index in range(5):
+        pdf.add_blank_page(page_size=(500 + index, 700 + index))
+    pdf.save(source)
+    pdf.close()
+    project = PdfProject()
+    project.add_document(SourceDocument.create(source, 5))
+    groups = build_split_groups(5, SplitStrategy.BATCH, batch_size=2)
+
+    outputs = ProjectService(PikePdfBackend()).split(
+        project,
+        destination,
+        groups,
+        "batch-source",
+    )
+
+    assert [path.name for path in outputs] == [
+        "batch-source-partie-01.pdf",
+        "batch-source-partie-02.pdf",
+        "batch-source-partie-03.pdf",
+    ]
+    page_sizes: list[list[tuple[float, float]]] = []
+    for output in outputs:
+        with pikepdf.open(output) as exported:
+            page_sizes.append(
+                [
+                    (
+                        float(page.mediabox[2]),
+                        float(page.mediabox[3]),
+                    )
+                    for page in exported.pages
+                ]
+            )
+    assert page_sizes == [
+        [(500.0, 700.0), (501.0, 701.0)],
+        [(502.0, 702.0), (503.0, 703.0)],
+        [(504.0, 704.0)],
+    ]

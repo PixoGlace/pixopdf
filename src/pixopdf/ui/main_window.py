@@ -116,7 +116,7 @@ class MainWindow(QMainWindow):
 
     def _connect_signals(self) -> None:
         self.workspace.add_requested.connect(self.open_files)
-        self.workspace.export_requested.connect(self.export)
+        self.workspace.export_requested.connect(self.execute_primary_action)
         self.workspace.delete_requested.connect(self.delete_pages)
         self.workspace.restore_requested.connect(self.restore_pages)
         self.workspace.remove_document_requested.connect(self.remove_document)
@@ -167,7 +167,7 @@ class MainWindow(QMainWindow):
     def _create_shortcuts(self) -> None:
         shortcuts: tuple[tuple[QKeySequence.StandardKey | str, Callable[[], Any]], ...] = (
             (QKeySequence.StandardKey.Open, self.open_files),
-            (QKeySequence.StandardKey.Save, self.export),
+            (QKeySequence.StandardKey.Save, self.execute_primary_action),
             (QKeySequence.StandardKey.Undo, self.undo),
             (QKeySequence.StandardKey.Redo, self.redo),
             (QKeySequence.StandardKey.SelectAll, self.workspace.pages.selectAll),
@@ -398,6 +398,13 @@ class MainWindow(QMainWindow):
             self._finish_split,
             "Division impossible",
         )
+
+    def execute_primary_action(self) -> None:
+        """Run the action represented by the primary top-bar button."""
+        if self.active_mode is WorkspaceMode.SPLIT:
+            self.workspace.request_split()
+            return
+        self.export()
 
     def _finish_split(self, result: object) -> None:
         if (

@@ -376,6 +376,7 @@ class WorkspacePage(QWidget):
         self._moved_page_count = 0
         self._modified_page_count = 0
         self._deleted_page_count = 0
+        self._split_output_count = 0
         self._message_token = 0
         self._base_status = "0 page au total     0 document     Traitement local"
         self.setObjectName("appRoot")
@@ -1149,7 +1150,7 @@ class WorkspacePage(QWidget):
 
         self.split_execute_button = self._button(
             "Choisir un dossier et diviser",
-            self._request_split,
+            self.request_split,
             "primaryButton",
             "Choisir le dossier qui recevra les nouveaux fichiers PDF",
         )
@@ -1284,6 +1285,7 @@ class WorkspacePage(QWidget):
         strategy = self._selected_split_strategy()
         self.split_batch_size.setEnabled(strategy is SplitStrategy.BATCH)
         self.split_ranges_input.setEnabled(strategy is SplitStrategy.RANGES)
+        self._split_output_count = 0
         if self._active_page_count < 1:
             self.split_summary_label.setText("Ajoutez un PDF pour préparer la division.")
             self.split_validation_label.setText("Aucune page active à diviser.")
@@ -1307,16 +1309,19 @@ class WorkspacePage(QWidget):
                 self.split_validation_label.setProperty("feedback", "error")
                 self.split_execute_button.setEnabled(False)
             else:
+                self._split_output_count = len(groups)
                 result_wording = "seront créés" if len(groups) > 1 else "sera créé"
                 self.split_validation_label.setText(
                     f"{len(groups)} fichier{'s' if len(groups) > 1 else ''} PDF {result_wording}."
                 )
                 self.split_validation_label.setProperty("feedback", "success")
                 self.split_execute_button.setEnabled(True)
+        self._update_primary_action()
+        self._update_export_state()
         self.split_validation_label.style().unpolish(self.split_validation_label)
         self.split_validation_label.style().polish(self.split_validation_label)
 
-    def _request_split(self) -> None:
+    def request_split(self) -> None:
         if not self.split_execute_button.isEnabled():
             return
         self.split_requested.emit(
@@ -1384,9 +1389,7 @@ class WorkspacePage(QWidget):
         self.mode_buttons[selected].setChecked(True)
         for action_mode, action in self.mode_actions.items():
             action.setChecked(action_mode is selected)
-        self.export_button.setText(
-            "Fusionner et exporter" if selected is WorkspaceMode.MERGE else "Exporter"
-        )
+        self._update_primary_action()
         self._update_export_state()
         self._update_change_legend()
         if not self._page_total:
@@ -1411,7 +1414,26 @@ class WorkspacePage(QWidget):
         can_export = bool(self._active_page_count) and (
             self.current_mode is not WorkspaceMode.MERGE or self._document_count >= 2
         )
+        if self.current_mode is WorkspaceMode.SPLIT:
+            can_export = can_export and self.split_execute_button.isEnabled()
         self.export_button.setEnabled(can_export)
+
+    def _update_primary_action(self) -> None:
+        if self.current_mode is WorkspaceMode.MERGE:
+            text = "Fusionner et exporter"
+            tooltip = "Fusionner les documents puis choisir le PDF de destination"
+        elif self.current_mode is WorkspaceMode.SPLIT:
+            text = (
+                f"Diviser en {self._split_output_count} PDF"
+                if self._split_output_count
+                else "Diviser"
+            )
+            tooltip = "Choisir le dossier qui recevra les PDF divisés"
+        else:
+            text = "Exporter"
+            tooltip = "Exporter le PDF (Ctrl+S)"
+        self.export_button.setText(text)
+        self.export_button.setToolTip(tooltip)
 
     def _update_change_legend(self) -> None:
         organize_mode = self.current_mode is WorkspaceMode.ORGANIZE

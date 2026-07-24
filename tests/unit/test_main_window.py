@@ -274,7 +274,8 @@ def test_split_mode_exports_batches_to_selected_directory(
     window.activate_mode(WorkspaceMode.SPLIT)
     window.workspace.split_batch_radio.setChecked(True)
     window.workspace.split_batch_size.setValue(2)
-    window.workspace.split_execute_button.click()
+    assert window.workspace.export_button.text() == "Diviser en 2 PDF"
+    window.workspace.export_button.click()
     wait_for_operation(window)
     qapp.processEvents()
 
