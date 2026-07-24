@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" role="img" aria-labelledby="title desc">
+  <title id="title">PixoPDF app icon — light</title>
+  <desc id="desc">PixoPDF document app icon.</desc>
+
+
+      <rect x="2" y="2" width="92" height="92" rx="20" fill="#F8FAFC"/>
+      <path d="M25 13h30l17 17v53H25c-8 0-13-5-13-13V26c0-8 5-13 13-13Z"
+            fill="#FFFFFF" stroke="#172B4D" stroke-width="6" stroke-linejoin="round"/>
+      <path d="M55 13v17h17" fill="#F59E0B" stroke="#172B4D" stroke-width="6" stroke-linejoin="round"/>
+      <rect x="27" y="33" width="13" height="13" rx="2.5" fill="#14B8A6"/>
+      <rect x="27" y="52" width="31" height="22" rx="4" fill="#14B8A6"/>
+      <path d="M42.5 52v22" stroke="#172B4D" stroke-width="3" opacity=".45"/>
+
+</svg>

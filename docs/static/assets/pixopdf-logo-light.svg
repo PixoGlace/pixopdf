@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" role="img" aria-labelledby="title desc">
+  <title id="title">PixoPDF logo — light theme</title>
+  <desc id="desc">A stacked document symbol with a teal page split and amber folded corner, followed by the word pixoPDF.</desc>
+
+  <defs>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#172B4D" flood-opacity="0.14"/>
+    </filter>
+  </defs>
+
+  <g transform="translate(64 46)" filter="url(#softShadow)">
+    <!-- Back page -->
+    <rect x="30" y="16" width="196" height="238" rx="30" fill="#F1F5F9" stroke="#172B4D" stroke-width="10"/>
+    <!-- Front page -->
+    <path d="M28 0 H160 L224 64 V238 C224 256 210 270 192 270 H28 C10 270 0 256 0 238 V32 C0 14 10 0 28 0 Z"
+          fill="#FFFFFF" stroke="#172B4D" stroke-width="10" stroke-linejoin="round"/>
+    <!-- Fold -->
+    <path d="M160 0 V42 C160 54 170 64 182 64 H224 Z" fill="#F59E0B"/>
+    <path d="M160 0 V42 C160 54 170 64 182 64 H224" fill="none" stroke="#172B4D" stroke-width="10" stroke-linejoin="round"/>
+
+    <!-- Split / merge motif -->
+    <rect x="44" y="92" width="56" height="112" rx="14" fill="#DFF8F5"/>
+    <rect x="124" y="92" width="56" height="112" rx="14" fill="#DFF8F5"/>
+    <path d="M112 82 V216" stroke="#14B8A6" stroke-width="14" stroke-linecap="round"/>
+    <path d="M70 148 H95 M129 148 H154" stroke="#14B8A6" stroke-width="10" stroke-linecap="round"/>
+    <circle cx="112" cy="236" r="10" fill="#F59E0B"/>
+  </g>
+
+  <!-- Wordmark -->
+  <g transform="translate(360 112)">
+    <text x="0" y="78" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="112" font-weight="750" letter-spacing="-5">
+      <tspan fill="#172B4D">pixo</tspan><tspan fill="#14B8A6">PDF</tspan>
+    </text>
+    <rect x="8" y="112" width="548" height="10" rx="5" fill="#E2E8F0"/>
+    <rect x="8" y="112" width="206" height="10" rx="5" fill="#F59E0B"/>
+    <text x="8" y="164" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="28" font-weight="500" fill="#475569" letter-spacing="1.6">
+      ORGANIZE • TRANSFORM • PROTECT
+    </text>
+  </g>
+</svg>

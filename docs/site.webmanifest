@@ -1,0 +1,24 @@
+{
+  "id": "./",
+  "name": "PixoPDF",
+  "short_name": "PixoPDF",
+  "description": "Organisez, fusionnez et divisez vos PDF localement avec PixoPDF.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F8FAFC",
+  "theme_color": "#172B4D",
+  "categories": [
+    "productivity",
+    "utilities"
+  ],
+  "icons": [
+    {
+      "src": "static/assets/pixopdf-app-icon-light.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

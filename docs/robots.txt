@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://pixoglace.github.io/pixopdf/sitemap.xml

@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="title desc">
+  <title id="title">Réorganiser — thème dark</title>
+  <desc id="desc">Icône vectorielle PixoPDF pour Réorganiser.</desc>
+
+
+  <rect x="10" y="10" width="17" height="17" rx="3" fill="none" stroke="#F8FAFC" stroke-width="4"/>
+  <rect x="37" y="10" width="17" height="17" rx="3" fill="none" stroke="#14B8A6" stroke-width="4" stroke-dasharray="5 4"/>
+  <rect x="10" y="37" width="17" height="17" rx="3" fill="none" stroke="#14B8A6" stroke-width="4" stroke-dasharray="5 4"/>
+  <rect x="37" y="37" width="17" height="17" rx="3" fill="none" stroke="#F8FAFC" stroke-width="4"/>
+
+</svg>
