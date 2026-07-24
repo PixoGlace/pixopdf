@@ -2157,4 +2157,4 @@ signatures = ["pyHanko"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.12,<3.15"
-content-hash = "05dc38bb18cac8d193b0b9ff79b29078be87ccad348620c354261b05b8d4eb4a"
+content-hash = "1e534deda04d6d01b74adc7f6a6a6e982253f2369f5d5c3947cdb090c635406a"
