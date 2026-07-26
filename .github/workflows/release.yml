@@ -1,0 +1,106 @@
+name: Build and release PixoPDF
+run-name: PixoPDF release · ${{ github.ref_name }} · ${{ github.actor }}
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pixopdf-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  validate:
+    name: Validate release metadata
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Compare project, application and tag versions
+        shell: bash
+        run: |
+          project_version="$(python -c \
+              'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          application_version="$(PYTHONPATH=src python -c \
+              'from pixopdf.config import VERSION; print(VERSION)')"
+          test "$project_version" = "$application_version"
+          if [[ "$GITHUB_REF_TYPE" = "tag" ]]; then
+            test "$GITHUB_REF_NAME" = "v$project_version"
+          fi
+          echo "Validated PixoPDF $project_version"
+
+  binaries:
+    name: Build release binaries
+    needs: validate
+    uses: ./.github/workflows/build.yml
+    with:
+      artifact_prefix: PixoPDF-release
+      retention_days: 14
+
+  publish:
+    name: Publish GitHub Release
+    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
+    needs: [validate, binaries]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: release-assets
+          pattern: PixoPDF-release-*
+          merge-multiple: true
+
+      - name: Verify release assets
+        shell: bash
+        run: |
+          expected_assets=(
+            PixoPDF-linux-x86_64.tar.gz
+            PixoPDF-windows-x86_64.exe
+            PixoPDF-windows-x86_64.zip
+            PixoPDF-macos-arm64.zip
+            PixoPDF-macos-x86_64.zip
+          )
+          for asset in "${expected_assets[@]}"; do
+            test -s "release-assets/$asset"
+          done
+          (
+            cd release-assets
+            sha256sum PixoPDF-* > SHA256SUMS.txt
+            cat SHA256SUMS.txt
+          )
+
+      - name: Publish or update GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" release-assets/* --clobber
+          else
+            prerelease_args=()
+            if [[ "$GITHUB_REF_NAME" =~ -(alpha|beta|rc) ]]; then
+              prerelease_args+=(--prerelease)
+            fi
+            gh release create "$GITHUB_REF_NAME" release-assets/* \
+              --verify-tag \
+              --generate-notes \
+              --title "PixoPDF $GITHUB_REF_NAME" \
+              "${prerelease_args[@]}"
+          fi

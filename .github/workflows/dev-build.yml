@@ -1,0 +1,24 @@
+name: PixoPDF development builds
+run-name: PixoPDF dev build · ${{ github.ref_name }} · ${{ github.actor }}
+
+on:
+  push:
+    branches:
+      - dev
+      - "dev/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pixopdf-dev-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  binaries:
+    name: Build development binaries
+    uses: ./.github/workflows/build.yml
+    with:
+      artifact_prefix: PixoPDF-dev-${{ github.run_number }}
+      retention_days: 7

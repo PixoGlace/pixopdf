@@ -68,12 +68,15 @@ Contributions are welcome; see `CONTRIBUTING.md`. PixoPDF is independent from Pi
 
 The multilingual PixoPDF showcase lives in `docs/`. It supports French,
 English, Chinese and Arabic, light and dark themes, and the PixoGlace Ko-fi
-sponsorship link. It is deliberately built from static HTML and CSS only:
-there is no JavaScript framework, package manager or build step.
+sponsorship link. A single semantic HTML page contains the complete French
+fallback; a small vanilla JavaScript layer switches the translation dictionary,
+persists the theme, animates the presentation and resolves direct download
+assets from the latest GitHub release. There is no JavaScript framework,
+package manager or build step.
 
 ```bash
 make docs-dev           # serve docs/ at http://localhost:8000
-make docs-check         # validate languages, links, assets and no-JS contract
+make docs-check         # validate i18n parity, links, assets and release wiring
 poetry run python scripts/capture_docs_assets.py  # refresh app screenshots
 ```
 

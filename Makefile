@@ -48,10 +48,10 @@ build: ## Générer le paquet Python et l'application PyInstaller
 	$(POETRY) build
 	$(POETRY) run pyinstaller --clean --noconfirm pixopdf.spec
 
-docs-dev: ## Servir le site HTML/CSS localement sur le port 8000
+docs-dev: ## Servir la vitrine statique localement sur le port 8000
 	$(POETRY) run python -m http.server 8000 --directory $(DOCS_DIR)
 
-docs-check: ## Vérifier les quatre pages statiques, leurs liens et leurs assets
+docs-check: ## Vérifier la page unique, les traductions, les liens et les assets
 	$(POETRY) run pytest tests/unit/test_docs_site.py
 
 clean: ## Supprimer les artefacts et caches locaux

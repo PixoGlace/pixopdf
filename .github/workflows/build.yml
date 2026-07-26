@@ -1,22 +1,223 @@
-name: Build
+name: Reusable PixoPDF binary build
+
 on:
-  workflow_dispatch:
-  push:
-    tags: ["v*"]
+  workflow_call:
+    inputs:
+      artifact_prefix:
+        description: Prefix used for uploaded artifact names
+        type: string
+        default: PixoPDF-build
+      retention_days:
+        description: Number of days to retain uploaded artifacts
+        type: number
+        default: 14
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+  POETRY_VERSION: "2.4.1"
+  POETRY_NO_INTERACTION: "1"
+  POETRY_VIRTUALENVS_IN_PROJECT: "true"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+  QT_QPA_PLATFORM: "offscreen"
+
 jobs:
-  build:
-    strategy:
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+  linux:
+    name: Linux x86_64
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with: {python-version: "3.12"}
-      - run: pipx install poetry
-      - run: poetry install --with build
-      - run: poetry run pyinstaller --clean --noconfirm pixopdf.spec
-      - uses: actions/upload-artifact@v4
+      - name: Check out repository
+        uses: actions/checkout@v7
         with:
-          name: PixoPDF-${{ runner.os }}
-          path: dist/
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Linux runtime libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes libegl1 libgl1 libxkbcommon-x11-0 libxcb-cursor0
+
+      - name: Install Poetry
+        run: |
+          python -m pip install "poetry==${{ env.POETRY_VERSION }}"
+          poetry --version
+
+      - name: Install locked dependencies
+        run: |
+          poetry check --lock
+          poetry install --with dev,build
+
+      - name: Run Linux tests
+        run: |
+          poetry run python -m compileall -q src tests
+          poetry run pytest -q
+
+      - name: Build Linux executable
+        run: poetry run pyinstaller --clean --noconfirm pixopdf.spec
+
+      - name: Verify and package Linux executable
+        shell: bash
+        run: |
+          test -x dist/PixoPDF
+          file dist/PixoPDF
+          mkdir -p release/package
+          install -m 755 dist/PixoPDF release/package/PixoPDF
+          archive="$PWD/release/PixoPDF-linux-x86_64.tar.gz"
+          tar -C release/package -czf "$archive" PixoPDF
+          tar -tzf "$archive"
+
+      - name: Upload Linux artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact_prefix }}-linux-x86_64
+          path: release/PixoPDF-linux-x86_64.tar.gz
+          if-no-files-found: error
+          retention-days: ${{ inputs.retention_days }}
+          compression-level: 0
+
+  windows:
+    name: Windows x86_64
+    runs-on: windows-2025
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        run: |
+          python -m pip install "poetry==${{ env.POETRY_VERSION }}"
+          poetry --version
+
+      - name: Install locked dependencies
+        run: |
+          poetry check --lock
+          poetry install --with dev,build
+
+      - name: Run Windows tests
+        run: |
+          poetry run python -m compileall -q src tests
+          poetry run pytest -q
+
+      - name: Build Windows executable
+        run: poetry run pyinstaller --clean --noconfirm pixopdf.spec
+
+      - name: Verify and package Windows executable
+        shell: pwsh
+        run: |
+          if (-not (Test-Path -LiteralPath "dist/PixoPDF.exe" -PathType Leaf)) {
+              throw "PyInstaller did not produce dist/PixoPDF.exe"
+          }
+          New-Item -ItemType Directory -Force -Path "release" | Out-Null
+          Copy-Item -LiteralPath "dist/PixoPDF.exe" `
+              -Destination "release/PixoPDF-windows-x86_64.exe" -Force
+          Compress-Archive -LiteralPath "dist/PixoPDF.exe" `
+              -DestinationPath "release/PixoPDF-windows-x86_64.zip" -Force
+          $verificationPath = Join-Path $env:RUNNER_TEMP "pixopdf-windows-archive"
+          Expand-Archive -LiteralPath "release/PixoPDF-windows-x86_64.zip" `
+              -DestinationPath $verificationPath -Force
+          if (-not (Test-Path -LiteralPath "$verificationPath/PixoPDF.exe" -PathType Leaf)) {
+              throw "The Windows archive does not contain PixoPDF.exe"
+          }
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact_prefix }}-windows-x86_64
+          path: |
+            release/PixoPDF-windows-x86_64.exe
+            release/PixoPDF-windows-x86_64.zip
+          if-no-files-found: error
+          retention-days: ${{ inputs.retention_days }}
+          compression-level: 0
+
+  macos:
+    name: macOS ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: macos-15-intel
+          - arch: arm64
+            runner: macos-15
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Verify runner architecture
+        shell: bash
+        run: |
+          actual_arch="$(uname -m)"
+          test "$actual_arch" = "${{ matrix.arch }}"
+          echo "Building for $actual_arch"
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Poetry
+        run: |
+          python -m pip install "poetry==${{ env.POETRY_VERSION }}"
+          poetry --version
+
+      - name: Install locked dependencies
+        run: |
+          poetry check --lock
+          poetry install --with dev,build
+
+      - name: Run macOS tests
+        run: |
+          poetry run python -m compileall -q src tests
+          poetry run pytest -q
+
+      - name: Build macOS application
+        run: poetry run pyinstaller --clean --noconfirm pixopdf.spec
+
+      - name: Verify, sign and package macOS application
+        shell: bash
+        run: |
+          app="dist/PixoPDF.app"
+          plist="$app/Contents/Info.plist"
+          executable="$app/Contents/MacOS/PixoPDF"
+          version="$(poetry run python -c 'from pixopdf.config import VERSION; print(VERSION)')"
+          test -d "$app"
+          test -x "$executable"
+          file "$executable" | grep -q "${{ matrix.arch }}"
+          test "$(plutil -extract CFBundleIdentifier raw -o - "$plist")" \
+              = "com.pixoglace.pixopdf"
+          test "$(plutil -extract CFBundleDisplayName raw -o - "$plist")" = "PixoPDF"
+          test "$(plutil -extract CFBundleShortVersionString raw -o - "$plist")" = "$version"
+          codesign --force --deep --sign - --timestamp=none "$app"
+          codesign --verify --deep --strict --verbose=2 "$app"
+          mkdir -p release
+          archive="release/PixoPDF-macos-${{ matrix.arch }}.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$app" "$archive"
+          unzip -t "$archive"
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact_prefix }}-macos-${{ matrix.arch }}
+          path: release/PixoPDF-macos-${{ matrix.arch }}.zip
+          if-no-files-found: error
+          retention-days: ${{ inputs.retention_days }}
+          compression-level: 0
