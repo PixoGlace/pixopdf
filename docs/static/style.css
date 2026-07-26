@@ -1,9 +1,9 @@
-/* PixoPDF showcase — static HTML and CSS, deliberately no JavaScript. */
+/* PixoPDF showcase — semantic HTML/CSS with lightweight progressive JavaScript. */
 :root {
   --navy: #172b4d;
   --navy-rgb: 23, 43, 77;
   --teal: #14b8a6;
-  --teal-dark: #0f8f82;
+  --teal-dark: #0b756b;
   --teal-soft: #dff8f5;
   --amber: #f59e0b;
   --amber-soft: #fff4d6;
@@ -19,6 +19,7 @@
   --shadow-soft: 0 12px 38px rgba(23, 43, 77, 0.09);
   --header: rgba(248, 250, 252, 0.84);
   --grid-line: rgba(23, 43, 77, 0.055);
+  --focus: #0b6f66;
   --dark-canvas: #0f172a;
   --dark-surface: #111827;
   --radius-xl: 32px;
@@ -43,6 +44,7 @@ body:has(#theme-toggle:checked) {
   --grid-line: rgba(203, 213, 225, 0.045);
   --teal-soft: #123f3d;
   --amber-soft: #422f0b;
+  --focus: #f59e0b;
 }
 
 * {
@@ -96,7 +98,7 @@ select {
 button:focus-visible,
 a:focus-visible,
 select:focus-visible {
-  outline: 3px solid var(--amber);
+  outline: 3px solid var(--focus);
   outline-offset: 3px;
 }
 
@@ -136,6 +138,19 @@ p {
 .section {
   position: relative;
   padding-block: 112px;
+}
+
+.has-js [data-reveal] {
+  opacity: 0;
+  transform: translateY(24px);
+  transition:
+    opacity 620ms ease var(--reveal-delay, 0ms),
+    transform 620ms cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0ms);
+}
+
+.has-js [data-reveal].is-revealed {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .section-grid {
@@ -685,8 +700,29 @@ body:has(#theme-toggle:checked) .header-download {
   color: transparent;
 }
 
+.hero-copy h1 .hero-title-main {
+  display: inline;
+  margin: 0;
+  background: none;
+  color: var(--text);
+}
+
 body:has(#theme-toggle:checked) .hero-copy h1 span {
   background-image: linear-gradient(110deg, #5ce0d1, var(--teal) 58%, #9af0e7);
+}
+
+body:has(#theme-toggle:checked) .hero-copy h1 .hero-title-main {
+  background: none;
+  color: var(--text);
+}
+
+.hero-badges b,
+.mode-tab b,
+.demo-action b,
+.state-legend b,
+.roadmap-label b,
+.floating-card b {
+  font: inherit;
 }
 
 .hero-description {
@@ -1975,6 +2011,45 @@ body:has(#theme-toggle:checked) .feature-card:nth-child(5) .feature-icon {
   background: var(--canvas);
 }
 
+.release-overview {
+  display: flex;
+  min-height: 98px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin: -12px 0 22px;
+  padding: 20px 24px;
+  border: 1px solid rgba(20, 184, 166, 0.3);
+  border-radius: var(--radius-md);
+  background:
+    linear-gradient(120deg, rgba(20, 184, 166, 0.09), transparent 56%),
+    var(--surface);
+}
+
+.release-overview > div {
+  display: grid;
+  gap: 2px;
+}
+
+.release-overview-label {
+  color: var(--teal-dark);
+  font-size: 0.64rem;
+  font-weight: 850;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.release-overview strong {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.release-overview p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
 .platform-grid {
   display: grid;
   gap: 15px;
@@ -1983,7 +2058,9 @@ body:has(#theme-toggle:checked) .feature-card:nth-child(5) .feature-icon {
 
 .platform-grid article {
   position: relative;
+  display: flex;
   min-height: 280px;
+  flex-direction: column;
   padding: 30px;
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-lg);
@@ -2045,6 +2122,79 @@ body:has(#theme-toggle:checked) .feature-card:nth-child(5) .feature-icon {
 .platform-grid article > span svg {
   width: 14px;
   height: 14px;
+}
+
+.platform-download {
+  display: grid;
+  min-height: 68px;
+  align-content: center;
+  gap: 2px;
+  margin-top: auto;
+  padding: 12px 14px;
+  border: 1px solid rgba(20, 184, 166, 0.38);
+  border-radius: 13px;
+  background: rgba(20, 184, 166, 0.08);
+  color: var(--text);
+  transition:
+    background-color 180ms ease,
+    border-color 180ms ease,
+    transform 180ms ease;
+}
+
+.platform-download:hover {
+  border-color: var(--teal);
+  background: rgba(20, 184, 166, 0.14);
+  transform: translateY(-2px);
+}
+
+.platform-download > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.platform-download svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  color: var(--teal-dark);
+}
+
+.platform-download strong {
+  font-size: 0.76rem;
+}
+
+.platform-download small {
+  padding-inline-start: 25px;
+  color: var(--text-muted);
+  font-size: 0.62rem;
+}
+
+.platform-download.is-pending {
+  border-style: dashed;
+}
+
+.platform-download.is-ready {
+  border-color: var(--teal);
+  background: var(--teal);
+  color: #062621;
+}
+
+.platform-download.is-ready svg,
+.platform-download.is-ready small {
+  color: #062621;
+}
+
+.release-fallback {
+  max-width: 760px;
+  margin: 22px auto 0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-align: center;
+}
+
+.release-fallback[hidden] {
+  display: none;
 }
 
 .platform-note {
@@ -2655,9 +2805,23 @@ body:has(#theme-toggle:checked) .feature-card:nth-child(5) .feature-icon {
   direction: rtl;
 }
 
-[dir="rtl"] .button svg[name="arrow"],
+[dir="rtl"] .icon-arrow,
 [dir="rtl"] .text-link svg {
   transform: scaleX(-1);
+}
+
+[dir="rtl"] .workflow-demo .demo-toolbar > span,
+[dir="rtl"] .workflow-demo .demo-options,
+[dir="rtl"] .workflow-demo .demo-statusbar {
+  direction: rtl;
+  text-align: start;
+}
+
+[dir="rtl"] .demo-file b,
+[dir="rtl"] .window-title,
+[dir="rtl"] .code-window {
+  direction: ltr;
+  unicode-bidi: isolate;
 }
 
 /* Responsive */
@@ -3053,6 +3217,12 @@ body:has(#theme-toggle:checked) .feature-card:nth-child(5) .feature-icon {
     grid-template-columns: 1fr;
   }
 
+  .release-overview {
+    align-items: flex-start;
+    flex-direction: column;
+    margin-top: 0;
+  }
+
   .feature-card {
     min-height: 250px;
   }
@@ -3196,6 +3366,11 @@ body:has(#theme-toggle:checked) .feature-card:nth-child(5) .feature-icon {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .has-js [data-reveal] {
+    opacity: 1;
+    transform: none;
+  }
+
   *,
   *::before,
   *::after {
