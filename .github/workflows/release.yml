@@ -1,16 +1,21 @@
 name: Build and release PixoPDF
-run-name: PixoPDF release · ${{ github.ref_name }} · ${{ github.actor }}
+run-name: PixoPDF release · ${{ inputs.release_tag || github.ref_name }} · ${{ github.actor }}
 
 on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing PixoPDF tag to build and publish, for example v0.1.0
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: pixopdf-release-${{ github.ref }}
+  group: pixopdf-release-${{ inputs.release_tag || github.ref }}
   cancel-in-progress: false
 
 env:
@@ -20,11 +25,14 @@ jobs:
   validate:
     name: Validate release metadata
     runs-on: ubuntu-22.04
+    outputs:
+      release_tag: ${{ steps.release_metadata.outputs.release_tag }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
         with:
           persist-credentials: false
+          ref: ${{ inputs.release_tag || github.ref_name }}
 
       - name: Set up Python
         uses: actions/setup-python@v7
@@ -32,16 +40,19 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Compare project, application and tag versions
+        id: release_metadata
         shell: bash
+        env:
+          REQUESTED_RELEASE_TAG: ${{ inputs.release_tag || github.ref_name }}
         run: |
+          release_tag="$REQUESTED_RELEASE_TAG"
           project_version="$(python -c \
               'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
           application_version="$(PYTHONPATH=src python -c \
               'from pixopdf.config import VERSION; print(VERSION)')"
           test "$project_version" = "$application_version"
-          if [[ "$GITHUB_REF_TYPE" = "tag" ]]; then
-            test "$GITHUB_REF_NAME" = "v$project_version"
-          fi
+          test "$release_tag" = "v$project_version"
+          echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
           echo "Validated PixoPDF $project_version"
 
   binaries:
@@ -51,10 +62,11 @@ jobs:
     with:
       artifact_prefix: PixoPDF-release
       retention_days: 14
+      source_ref: ${{ needs.validate.outputs.release_tag }}
 
   publish:
     name: Publish GitHub Release
-    if: github.ref_type == 'tag' && startsWith(github.ref_name, 'v')
+    if: github.ref_type == 'tag' || github.event_name == 'workflow_dispatch'
     needs: [validate, binaries]
     runs-on: ubuntu-22.04
     permissions:
@@ -90,17 +102,19 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.validate.outputs.release_tag }}
         run: |
-          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" release-assets/* --clobber
+          if gh release view "$RELEASE_TAG" > /dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release-assets/* --clobber
           else
             prerelease_args=()
-            if [[ "$GITHUB_REF_NAME" =~ -(alpha|beta|rc) ]]; then
+            if [[ "$RELEASE_TAG" =~ -(alpha|beta|rc) ]]; then
               prerelease_args+=(--prerelease)
             fi
-            gh release create "$GITHUB_REF_NAME" release-assets/* \
+            gh release create "$RELEASE_TAG" release-assets/* \
               --verify-tag \
               --generate-notes \
-              --title "PixoPDF $GITHUB_REF_NAME" \
+              --title "PixoPDF $RELEASE_TAG" \
               "${prerelease_args[@]}"
           fi

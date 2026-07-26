@@ -42,6 +42,8 @@ def test_reusable_build_uses_poetry_spec_and_real_portable_artifacts() -> None:
     assert "poetry check --lock" in build
     assert "poetry install --with dev,build" in build
     assert "pyinstaller --clean --noconfirm pixopdf.spec" in build
+    assert "source_ref:" in build
+    assert "ref: ${{ inputs.source_ref || github.ref }}" in build
     assert "actions/checkout@v7" in build
     assert "actions/setup-python@v7" in build
     assert "actions/upload-artifact@v7" in build
@@ -62,10 +64,15 @@ def test_reusable_build_uses_poetry_spec_and_real_portable_artifacts() -> None:
 def test_release_is_tag_guarded_and_limits_write_permission_to_publication() -> None:
     release = _workflow("release.yml")
     assert 'tags: ["v*"]' in release
-    assert 'test "$GITHUB_REF_NAME" = "v$project_version"' in release
+    assert "release_tag:" in release
+    assert 'test "$release_tag" = "v$project_version"' in release
+    assert "source_ref: ${{ needs.validate.outputs.release_tag }}" in release
     assert "actions/download-artifact@v8" in release
     assert "SHA256SUMS.txt" in release
     assert "gh release create" in release
+    assert "GH_REPO: ${{ github.repository }}" in release
+    assert "RELEASE_TAG: ${{ needs.validate.outputs.release_tag }}" in release
+    assert 'gh release create "$RELEASE_TAG"' in release
     assert release.count("contents: write") == 1
     assert release.index("contents: write") > release.index("publish:")
     assert "permissions:\n  contents: read" in release
