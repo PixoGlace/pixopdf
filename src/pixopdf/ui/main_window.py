@@ -1,7 +1,10 @@
+import os
 import sys
 import tempfile
 import time
+from collections import OrderedDict
 from collections.abc import Callable
+from dataclasses import dataclass, replace
 from datetime import datetime
 from functools import partial
 from pathlib import Path
@@ -55,8 +58,10 @@ from pixopdf.pdf.pdfium_renderer import PdfiumRenderer
 from pixopdf.services.compression_service import (
     CompressionOptions,
     CompressionProfile,
+    CompressionProgress,
     CompressionResult,
     CompressionService,
+    CompressionStage,
 )
 from pixopdf.services.conversion_service import (
     ConversionService,
@@ -92,8 +97,15 @@ from pixopdf.services.update_service import UpdateResult, UpdateService, UpdateS
 from .dialogs import AboutDialog, QuickHelpDialog, SettingsDialog
 from .themes.theme_manager import Theme, apply_theme
 from .tool_modes import MODE_SPECS, WorkspaceMode, coerce_mode
-from .workspace.operation_worker import OperationTask
+from .workspace.operation_worker import OperationContext, OperationTask
 from .workspace.workspace_page import WorkspacePage
+
+
+@dataclass(frozen=True, slots=True)
+class _CompressionPreviewEntry:
+    key: tuple[object, ...]
+    path: Path
+    result: CompressionResult
 
 
 class MainWindow(QMainWindow):
@@ -120,6 +132,17 @@ class MainWindow(QMainWindow):
         self.language = self._saved_language()
         self.active_mode = self._saved_mode()
         self._active_task: OperationTask | None = None
+        self._compression_preview_task: OperationTask | None = None
+        self._compression_preview_generation = 0
+        self._compression_preview_pool = QThreadPool(self)
+        self._compression_preview_pool.setMaxThreadCount(1)
+        self._compression_preview_directory = tempfile.TemporaryDirectory(
+            prefix=".pixopdf-preview-"
+        )
+        self._compression_preview_root = Path(self._compression_preview_directory.name)
+        self._compression_preview_cache: OrderedDict[
+            tuple[object, ...], _CompressionPreviewEntry
+        ] = OrderedDict()
         self._update_task: OperationTask | None = None
         self._update_manual = False
         self._closing = False
@@ -247,6 +270,9 @@ class MainWindow(QMainWindow):
         self.workspace.undo_requested.connect(self.undo)
         self.workspace.redo_requested.connect(self.redo)
         self.workspace.mode_requested.connect(self.activate_mode)
+        self.workspace.compression_preview_requested.connect(self.request_compression_preview)
+        self.workspace.compression_preview_cancel_requested.connect(self.cancel_compression_preview)
+        self.workspace.operation_cancel_requested.connect(self.cancel_active_operation)
         self.workspace.pages.itemSelectionChanged.connect(self._sync_menu_action_state)
         self.workspace.primary_action_changed.connect(self._sync_primary_menu_action)
         self.commands.subscribe(self.refresh)
@@ -1472,32 +1498,285 @@ class MainWindow(QMainWindow):
         if self._active_task is not None or not self.project.active_page_count:
             return
         settings = self.workspace.operation_options()
-        action = str(settings["action"])
+        options = self._compression_options_from_settings(settings)
         destination = self._choose_pdf_destination(
             self.t("compress_save_dialog"),
             self._default_output_name("compresse"),
         )
         if destination is None:
             return
+        cache_key = self._compression_preview_key(options)
+        cached = self._compression_preview_cache.get(cache_key)
+        self.cancel_compression_preview(show_feedback=False)
+
+        def compress(context: OperationContext) -> CompressionResult:
+            if cached is not None and cached.path.is_file():
+                return self._publish_cached_compression(cached, destination, context)
+            snapshot = self._project_snapshot()
+            with tempfile.TemporaryDirectory(
+                prefix=".pixopdf-operation-",
+                dir=destination.parent,
+            ) as temporary_directory:
+                source = Path(temporary_directory) / f"{self._default_output_stem()}.pdf"
+                self.service.export(snapshot, source)
+                return self.compression_service.compress(
+                    source,
+                    destination,
+                    options,
+                    progress=context.report,
+                    cancelled=context.is_cancelled,
+                )
+
+        self.workspace.show_message(self.t("compression_in_progress"))
+        self._start_operation(
+            compress,
+            self._finish_tool_operation,
+            self.t("compression_error_title"),
+            contextual=True,
+            on_progress=self._show_compression_operation_progress,
+        )
+
+    @staticmethod
+    def _compression_options_from_settings(
+        settings: dict[str, object],
+    ) -> CompressionOptions:
+        action = str(settings["action"])
         if action == "advanced":
-            options = CompressionOptions.for_advanced(
+            return CompressionOptions.for_advanced(
                 dpi=cast(int | None, settings["dpi"]),
                 target_size_bytes=cast(int | None, settings["target_bytes"]),
                 allow_raster_fallback=bool(settings["allow_aggressive"]),
             )
-        else:
-            options = CompressionOptions.for_profile(CompressionProfile(action))
-        transform = partial(
-            self.compression_service.compress,
-            destination=destination,
-            options=options,
+        return CompressionOptions.for_profile(CompressionProfile(action))
+
+    def _compression_preview_key(
+        self,
+        options: CompressionOptions,
+    ) -> tuple[object, ...]:
+        documents: list[tuple[object, ...]] = []
+        for document_id, document in sorted(
+            self.project.documents.items(), key=lambda item: str(item[0])
+        ):
+            try:
+                stat = document.path.stat()
+                identity = (stat.st_size, stat.st_mtime_ns)
+            except OSError:
+                identity = (-1, -1)
+            documents.append((str(document_id), str(document.path), *identity))
+        pages = tuple(
+            (
+                str(page.id),
+                str(page.source_document_id) if page.source_document_id else None,
+                page.source_page_index,
+                page.rotation,
+                page.crop_box,
+                page.blank_size,
+            )
+            for page in self.project.active_pages
         )
-        self.workspace.show_message(self.t("compression_in_progress"))
-        self._start_operation(
-            lambda: self._run_on_materialized_project(destination, transform),
-            self._finish_tool_operation,
-            self.t("compression_error_title"),
+        return (tuple(documents), pages, options)
+
+    def request_compression_preview(self, raw_settings: object) -> None:
+        if self._active_task is not None or not isinstance(raw_settings, dict):
+            return
+        try:
+            options = self._compression_options_from_settings(raw_settings)
+        except (KeyError, TypeError, ValueError) as exc:
+            self.workspace.set_compression_preview_error(str(exc))
+            return
+        self.cancel_compression_preview(show_feedback=False)
+        key = self._compression_preview_key(options)
+        cached = self._compression_preview_cache.get(key)
+        if cached is not None and cached.path.is_file():
+            self._compression_preview_cache.move_to_end(key)
+            self.workspace.set_compression_preview_result(
+                cached.result.original_size,
+                cached.result.compressed_size,
+                cached=True,
+            )
+            return
+
+        self._compression_preview_generation += 1
+        generation = self._compression_preview_generation
+        snapshot = self._project_snapshot()
+        source = self._compression_preview_root / f"{generation}-source.pdf"
+        destination = self._compression_preview_root / f"{generation}-compressed.pdf"
+
+        def preview(context: OperationContext) -> CompressionResult:
+            try:
+                self.service.export(snapshot, source)
+                return self.compression_service.compress(
+                    source,
+                    destination,
+                    options,
+                    progress=context.report,
+                    cancelled=context.is_cancelled,
+                )
+            finally:
+                source.unlink(missing_ok=True)
+
+        task = OperationTask(preview, contextual=True)
+        self._compression_preview_task = task
+        task.signals.progress.connect(
+            lambda value: self._compression_preview_progress(task, generation, value)
         )
+        task.signals.succeeded.connect(
+            lambda result: self._compression_preview_succeeded(
+                task, generation, key, destination, result
+            )
+        )
+        task.signals.failed.connect(
+            lambda message: self._compression_preview_failed(task, generation, destination, message)
+        )
+        task.signals.cancelled.connect(
+            lambda: self._compression_preview_cancelled(task, generation, destination)
+        )
+        self.workspace.set_compression_preview_progress(0, self.t("compression_stage_preparing"))
+        self._compression_preview_pool.start(task)
+
+    def cancel_compression_preview(self, *, show_feedback: bool = True) -> None:
+        task = self._compression_preview_task
+        if task is None:
+            return
+        self._compression_preview_generation += 1
+        self._compression_preview_task = None
+        task.cancel()
+        if show_feedback:
+            self.workspace.set_compression_preview_cancelled()
+
+    def _compression_preview_progress(
+        self,
+        task: OperationTask,
+        generation: int,
+        value: object,
+    ) -> None:
+        if task is not self._compression_preview_task:
+            return
+        if generation != self._compression_preview_generation:
+            return
+        if isinstance(value, CompressionProgress):
+            self.workspace.set_compression_preview_progress(
+                value.percent, self._compression_progress_text(value)
+            )
+
+    def _compression_preview_succeeded(
+        self,
+        task: OperationTask,
+        generation: int,
+        key: tuple[object, ...],
+        destination: Path,
+        result: object,
+    ) -> None:
+        if task is not self._compression_preview_task:
+            destination.unlink(missing_ok=True)
+            return
+        if generation != self._compression_preview_generation:
+            destination.unlink(missing_ok=True)
+            return
+        self._compression_preview_task = None
+        if not isinstance(result, CompressionResult):
+            destination.unlink(missing_ok=True)
+            self.workspace.set_compression_preview_error(self.t("unexpected_operation_result"))
+            return
+        entry = _CompressionPreviewEntry(key, destination, result)
+        self._compression_preview_cache[key] = entry
+        self._compression_preview_cache.move_to_end(key)
+        while len(self._compression_preview_cache) > 4:
+            _, stale = self._compression_preview_cache.popitem(last=False)
+            stale.path.unlink(missing_ok=True)
+        self.workspace.set_compression_preview_result(
+            result.original_size,
+            result.compressed_size,
+            cached=False,
+        )
+
+    def _compression_preview_failed(
+        self,
+        task: OperationTask,
+        generation: int,
+        destination: Path,
+        message: str,
+    ) -> None:
+        destination.unlink(missing_ok=True)
+        if task is not self._compression_preview_task:
+            return
+        if generation != self._compression_preview_generation:
+            return
+        self._compression_preview_task = None
+        self.workspace.set_compression_preview_error(
+            self.t("compression_preview_error", message=message)
+        )
+
+    def _compression_preview_cancelled(
+        self,
+        task: OperationTask,
+        generation: int,
+        destination: Path,
+    ) -> None:
+        destination.unlink(missing_ok=True)
+        if task is not self._compression_preview_task:
+            return
+        if generation != self._compression_preview_generation:
+            return
+        self._compression_preview_task = None
+        self.workspace.set_compression_preview_cancelled()
+
+    def _compression_progress_text(self, progress: CompressionProgress) -> str:
+        key = f"compression_stage_{progress.stage.value}"
+        if progress.stage in {
+            CompressionStage.OPTIMIZING,
+            CompressionStage.TESTING,
+            CompressionStage.RASTERIZING,
+        }:
+            return self.t(
+                key,
+                current=max(1, progress.current),
+                total=max(1, progress.total),
+            )
+        return self.t(key)
+
+    def _show_compression_operation_progress(self, value: object) -> None:
+        if isinstance(value, CompressionProgress):
+            self.workspace.set_operation_progress(
+                value.percent,
+                self._compression_progress_text(value),
+            )
+
+    @staticmethod
+    def _publish_cached_compression(
+        entry: _CompressionPreviewEntry,
+        destination: Path,
+        context: OperationContext,
+    ) -> CompressionResult:
+        file_descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f".{destination.name}.",
+            suffix=".tmp",
+            dir=destination.parent,
+        )
+        os.close(file_descriptor)
+        temporary = Path(temporary_name)
+        copied = 0
+        total = max(1, entry.path.stat().st_size)
+        try:
+            with entry.path.open("rb") as source_stream, temporary.open("wb") as output_stream:
+                while chunk := source_stream.read(1024 * 1024):
+                    if context.is_cancelled():
+                        raise RuntimeError("Compression annulée")
+                    output_stream.write(chunk)
+                    copied += len(chunk)
+                    context.report(
+                        CompressionProgress(
+                            min(99, round(copied / total * 100)),
+                            CompressionStage.SAVING,
+                        )
+                    )
+            if context.is_cancelled():
+                raise RuntimeError("Compression annulée")
+            os.replace(temporary, destination)
+        finally:
+            temporary.unlink(missing_ok=True)
+        context.report(CompressionProgress(100, CompressionStage.COMPLETE))
+        return replace(entry.result, destination=destination)
 
     def _finish_tool_operation(self, result: object) -> None:
         if isinstance(result, CompressionResult):
@@ -1607,20 +1886,40 @@ class MainWindow(QMainWindow):
 
     def _start_operation(
         self,
-        operation: Callable[[], Any],
+        operation: Callable[[], Any] | Callable[[OperationContext], Any],
         on_success: Callable[[object], None],
         error_title: str,
+        *,
+        contextual: bool = False,
+        on_progress: Callable[[object], None] | None = None,
     ) -> None:
-        task = OperationTask(operation)
+        task = OperationTask(operation, contextual=contextual)
         self._active_task = task
         self._set_busy(True)
+        if on_progress is not None:
+            task.signals.progress.connect(on_progress)
         task.signals.succeeded.connect(
             lambda result: self._operation_succeeded(task, result, on_success)
         )
         task.signals.failed.connect(
             lambda message: self._operation_failed(task, error_title, message)
         )
+        task.signals.cancelled.connect(lambda: self._operation_cancelled(task))
         QThreadPool.globalInstance().start(task)
+
+    def cancel_active_operation(self) -> None:
+        if self._active_task is None:
+            return
+        self._active_task.cancel()
+        self.workspace.set_operation_cancelling()
+
+    def _operation_cancelled(self, task: OperationTask) -> None:
+        if task is not self._active_task:
+            return
+        self._active_task = None
+        self._set_busy(False)
+        self.workspace.show_message(self.t("operation_cancelled"))
+        self.workspace.clear_sensitive_fields()
 
     def _operation_succeeded(
         self,
@@ -1649,7 +1948,9 @@ class MainWindow(QMainWindow):
         self.workspace.clear_sensitive_fields()
 
     def _set_busy(self, busy: bool) -> None:
-        self.workspace.setEnabled(not busy)
+        if busy:
+            self.cancel_compression_preview(show_feedback=False)
+        self.workspace.set_operation_busy(busy)
         for action in self.shortcut_actions:
             action.setEnabled(not busy)
         app = QApplication.instance()
@@ -1742,5 +2043,10 @@ class MainWindow(QMainWindow):
         self.settings.setValue("window/splitter_sizes", self.workspace.splitter.sizes())
         self._closing = True
         self._update_task = None
+        self.cancel_compression_preview(show_feedback=False)
+        self._compression_preview_pool.clear()
+        self._compression_preview_pool.waitForDone()
+        self._compression_preview_cache.clear()
+        self._compression_preview_directory.cleanup()
         self.workspace.shutdown()
         event.accept()

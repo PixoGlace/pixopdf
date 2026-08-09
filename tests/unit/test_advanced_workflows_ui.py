@@ -11,6 +11,7 @@ from pixopdf.pdf.pikepdf_backend import PikePdfBackend
 from pixopdf.services.project_service import ProjectService
 from pixopdf.ui.main_window import MainWindow
 from pixopdf.ui.tool_modes import WorkspaceMode
+from pixopdf.ui.workspace.operation_worker import OperationContext, OperationSignals
 
 
 def _window(tmp_path: Path) -> MainWindow:
@@ -24,11 +25,15 @@ def _window(tmp_path: Path) -> MainWindow:
 
 
 def _run_synchronously(
-    operation: Callable[[], object],
+    operation: Callable[..., object],
     on_success: Callable[[object], None],
     _error_title: str,
+    **options: object,
 ) -> None:
-    on_success(operation())
+    if options.get("contextual"):
+        on_success(operation(OperationContext(OperationSignals())))
+    else:
+        on_success(operation())
 
 
 def _close(window: MainWindow) -> None:

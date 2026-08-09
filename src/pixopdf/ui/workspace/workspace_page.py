@@ -44,6 +44,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMenu,
+    QProgressBar,
     QPushButton,
     QRadioButton,
     QScrollArea,
@@ -498,6 +499,9 @@ class WorkspacePage(QWidget):
     signature_image_requested = Signal()
     certificate_file_requested = Signal()
     protected_pdf_requested = Signal()
+    compression_preview_requested = Signal(object)
+    compression_preview_cancel_requested = Signal()
+    operation_cancel_requested = Signal()
 
     def __init__(self, renderer: PdfRenderer) -> None:
         super().__init__()
@@ -529,6 +533,10 @@ class WorkspacePage(QWidget):
         self._protected_pdf_path = ""
         self._compression_sources: frozenset[str] = frozenset()
         self._compression_source_bytes = 0
+        self._compression_preview_timer = QTimer(self)
+        self._compression_preview_timer.setSingleShot(True)
+        self._compression_preview_timer.setInterval(650)
+        self._compression_preview_timer.timeout.connect(self._request_compression_preview)
         self._project: PdfProject | None = None
         self._home_active = True
         self._message_token = 0
@@ -537,7 +545,8 @@ class WorkspacePage(QWidget):
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
-        root.addWidget(self._create_topbar())
+        self.topbar = self._create_topbar()
+        root.addWidget(self.topbar)
         self.content_stack = QStackedWidget()
         self.content_stack.setObjectName("contentStack")
         self.home_view = self._create_home_view()
@@ -1975,6 +1984,29 @@ class WorkspacePage(QWidget):
         self.compress_summary_label.setObjectName("selectionSummary")
         self.compress_summary_label.setWordWrap(True)
         body_layout.addWidget(self.compress_summary_label)
+        self.compress_preview_feedback = QLabel()
+        self.compress_preview_feedback.setObjectName("organizeActionStatus")
+        self.compress_preview_feedback.setWordWrap(True)
+        self.compress_preview_feedback.hide()
+        body_layout.addWidget(self.compress_preview_feedback)
+        self.compress_preview_row = QWidget()
+        preview_row_layout = QHBoxLayout(self.compress_preview_row)
+        preview_row_layout.setContentsMargins(0, 0, 0, 0)
+        preview_row_layout.setSpacing(7)
+        self.compress_preview_progress = QProgressBar()
+        self.compress_preview_progress.setObjectName("operationProgress")
+        self.compress_preview_progress.setRange(0, 100)
+        self.compress_preview_progress.setValue(0)
+        self.compress_preview_progress.setTextVisible(True)
+        preview_row_layout.addWidget(self.compress_preview_progress, 1)
+        self.compress_preview_cancel_button = self._button(
+            "Annuler",
+            self.compression_preview_cancel_requested.emit,
+            "secondaryButton",
+        )
+        preview_row_layout.addWidget(self.compress_preview_cancel_button)
+        self.compress_preview_row.hide()
+        body_layout.addWidget(self.compress_preview_row)
         self.compress_group = QButtonGroup(page)
         self.compress_light_radio = QRadioButton("Compression légère")
         self.compress_balanced_radio = QRadioButton("Compression équilibrée")
@@ -2203,9 +2235,11 @@ class WorkspacePage(QWidget):
         estimate = self.estimated_compression_size()
         if self._compression_source_bytes <= 0:
             self.compress_summary_label.setText(self.t("compression_estimate_unavailable"))
+            self._schedule_compression_preview()
             return
         if estimate is None:
             self.compress_summary_label.setText(self.t("compression_choose_advanced_setting"))
+            self._schedule_compression_preview()
             return
         source_mb = self._compression_source_bytes / 1_000_000
         output_mb = estimate / 1_000_000
@@ -2218,6 +2252,89 @@ class WorkspacePage(QWidget):
                 saving=saving,
             )
         )
+        self._schedule_compression_preview()
+
+    def _schedule_compression_preview(self) -> None:
+        if not hasattr(self, "compress_preview_feedback"):
+            return
+        self._compression_preview_timer.stop()
+        preview_available = (
+            self.current_mode is WorkspaceMode.COMPRESS
+            and not self._home_active
+            and self._active_page_count > 0
+            and self.estimated_compression_size() is not None
+        )
+        if not preview_available:
+            self.compress_preview_feedback.hide()
+            self.compress_preview_row.hide()
+            return
+        self.compress_preview_feedback.setText(self.t("compression_preview_scheduled"))
+        self.compress_preview_feedback.setProperty("feedback", "none")
+        self._refresh_compression_preview_feedback_style()
+        self.compress_preview_feedback.show()
+        self.compress_preview_row.hide()
+        self._compression_preview_timer.start()
+
+    def _request_compression_preview(self) -> None:
+        if (
+            self.current_mode is WorkspaceMode.COMPRESS
+            and not self._home_active
+            and self._active_page_count > 0
+        ):
+            self.compression_preview_requested.emit(self.operation_options())
+
+    def set_compression_preview_progress(self, percent: int, text: str) -> None:
+        self.compress_preview_feedback.setText(text)
+        self.compress_preview_feedback.setProperty("feedback", "none")
+        self._refresh_compression_preview_feedback_style()
+        self.compress_preview_feedback.show()
+        self.compress_preview_progress.setValue(max(0, min(100, percent)))
+        self.compress_preview_cancel_button.setEnabled(True)
+        self.compress_preview_row.show()
+
+    def set_compression_preview_result(
+        self,
+        source_bytes: int,
+        output_bytes: int,
+        *,
+        cached: bool,
+    ) -> None:
+        source_mb = source_bytes / 1_000_000
+        output_mb = output_bytes / 1_000_000
+        saving = max(0, round((1 - output_bytes / max(1, source_bytes)) * 100))
+        self.compress_summary_label.setText(
+            self.t(
+                "compression_exact_result",
+                source=f"{source_mb:.2f}",
+                output=f"{output_mb:.2f}",
+                saving=saving,
+            )
+        )
+        self.compress_preview_feedback.setText(
+            self.t("compression_preview_cached" if cached else "compression_preview_ready")
+        )
+        self.compress_preview_feedback.setProperty("feedback", "success")
+        self._refresh_compression_preview_feedback_style()
+        self.compress_preview_feedback.show()
+        self.compress_preview_row.hide()
+
+    def set_compression_preview_error(self, message: str) -> None:
+        self.compress_preview_feedback.setText(message)
+        self.compress_preview_feedback.setProperty("feedback", "error")
+        self._refresh_compression_preview_feedback_style()
+        self.compress_preview_feedback.show()
+        self.compress_preview_row.hide()
+
+    def set_compression_preview_cancelled(self) -> None:
+        self.compress_preview_feedback.setText(self.t("compression_preview_cancelled"))
+        self.compress_preview_feedback.setProperty("feedback", "none")
+        self._refresh_compression_preview_feedback_style()
+        self.compress_preview_feedback.show()
+        self.compress_preview_row.hide()
+
+    def _refresh_compression_preview_feedback_style(self) -> None:
+        self.compress_preview_feedback.style().unpolish(self.compress_preview_feedback)
+        self.compress_preview_feedback.style().polish(self.compress_preview_feedback)
 
     def selected_operation(self) -> str:
         if self.current_mode is WorkspaceMode.LAYOUT:
@@ -2756,6 +2873,8 @@ class WorkspacePage(QWidget):
         self.compress_allow_raster.setText(self.t("allow_aggressive_compression"))
         self.compress_raster_warning.setText(self.t("compression_raster_option_warning"))
         self.compress_result_hint.setText(self.t("target_size_notice"))
+        self.compress_preview_cancel_button.setText(self.t("cancel"))
+        self.operation_cancel_button.setText(self.t("cancel"))
         self._update_compression_estimate()
 
         for mode, spec in MODE_SPECS.items():
@@ -2811,6 +2930,8 @@ class WorkspacePage(QWidget):
         return self._home_active
 
     def show_home(self) -> None:
+        self._compression_preview_timer.stop()
+        self.compression_preview_cancel_requested.emit()
         self._home_active = True
         self._conversion_image_paths.clear()
         self._signature_image_path = ""
@@ -2865,6 +2986,8 @@ class WorkspacePage(QWidget):
         self.home_button.style().unpolish(self.home_button)
         self.home_button.style().polish(self.home_button)
         self._update_export_state()
+        if self.current_mode is WorkspaceMode.COMPRESS:
+            self._schedule_compression_preview()
 
     def set_mode(self, mode: WorkspaceMode | str) -> None:
         selected = coerce_mode(mode)
@@ -2919,6 +3042,11 @@ class WorkspacePage(QWidget):
                     title=self.t(f"mode_{selected.value}_home_title"),
                 )
             )
+        if selected is WorkspaceMode.COMPRESS:
+            self._schedule_compression_preview()
+        else:
+            self._compression_preview_timer.stop()
+            self.compression_preview_cancel_requested.emit()
 
     def set_theme(self, theme: Theme) -> None:
         self._theme = theme
@@ -3101,6 +3229,27 @@ class WorkspacePage(QWidget):
         self.status = QLabel(self._base_status)
         self.status.setObjectName("muted")
         layout.addWidget(self.status)
+        self.operation_progress_widget = QWidget()
+        operation_layout = QHBoxLayout(self.operation_progress_widget)
+        operation_layout.setContentsMargins(8, 0, 8, 0)
+        operation_layout.setSpacing(7)
+        self.operation_progress_label = QLabel()
+        self.operation_progress_label.setObjectName("organizeActionStatus")
+        operation_layout.addWidget(self.operation_progress_label)
+        self.operation_progress = QProgressBar()
+        self.operation_progress.setObjectName("operationProgress")
+        self.operation_progress.setRange(0, 100)
+        self.operation_progress.setValue(0)
+        self.operation_progress.setFixedWidth(190)
+        operation_layout.addWidget(self.operation_progress)
+        self.operation_cancel_button = self._button(
+            "Annuler",
+            self.operation_cancel_requested.emit,
+            "secondaryButton",
+        )
+        operation_layout.addWidget(self.operation_cancel_button)
+        self.operation_progress_widget.hide()
+        layout.addWidget(self.operation_progress_widget)
         layout.addStretch()
         self.zoom_controls = QWidget()
         self.zoom_controls.setObjectName("zoomControls")
@@ -3530,6 +3679,30 @@ class WorkspacePage(QWidget):
         self.undo_button.setEnabled(can_undo)
         self.redo_button.setEnabled(can_redo)
 
+    def set_operation_busy(self, busy: bool) -> None:
+        """Disable editing while keeping the status-bar cancel action usable."""
+        self.topbar.setEnabled(not busy)
+        self.content_stack.setEnabled(not busy)
+        if not busy:
+            self.operation_progress_widget.hide()
+
+    def set_operation_progress(
+        self,
+        percent: int,
+        text: str,
+        *,
+        cancellable: bool = True,
+    ) -> None:
+        self.operation_progress_label.setText(text)
+        self.operation_progress.setValue(max(0, min(100, percent)))
+        self.operation_cancel_button.setVisible(cancellable)
+        self.operation_cancel_button.setEnabled(cancellable)
+        self.operation_progress_widget.show()
+
+    def set_operation_cancelling(self) -> None:
+        self.operation_progress_label.setText(self.t("operation_cancelling"))
+        self.operation_cancel_button.setEnabled(False)
+
     def show_message(self, message: str, error: bool = False) -> None:
         self._message_token += 1
         token = self._message_token
@@ -3558,6 +3731,8 @@ class WorkspacePage(QWidget):
 
     def shutdown(self) -> None:
         """Stop preview jobs before Qt destroys their signal receivers."""
+        self._compression_preview_timer.stop()
+        self.compression_preview_cancel_requested.emit()
         for task in self._thumbnail_tasks.values():
             task.cancel()
         self._thread_pool.clear()

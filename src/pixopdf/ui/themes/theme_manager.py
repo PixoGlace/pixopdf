@@ -165,6 +165,14 @@ QPushButton, QToolButton {
 }
 QPushButton:hover, QToolButton:hover { background: %(hover)s; border-color: #14B8A6; }
 QPushButton:pressed, QToolButton:pressed { background: %(pressed)s; }
+QProgressBar#operationProgress {
+    min-height: 8px; max-height: 12px; border: 1px solid %(border)s;
+    border-radius: 5px; background: %(surface_alt)s; color: %(text)s;
+    text-align: center; font-size: 9px;
+}
+QProgressBar#operationProgress::chunk {
+    border-radius: 4px; background: #14B8A6;
+}
 QPushButton:focus, QToolButton:focus, QComboBox:focus, QLineEdit:focus,
 QSpinBox:focus, QListWidget:focus {
     border: 2px solid #F59E0B;

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pikepdf
 import pytest
 from PySide6.QtCore import QEventLoop, QSettings, QTimer
 from PySide6.QtWidgets import QApplication, QFileDialog
@@ -7,6 +8,7 @@ from PySide6.QtWidgets import QApplication, QFileDialog
 from pixopdf.domain.document import SourceDocument
 from pixopdf.domain.project import PdfProject
 from pixopdf.pdf.backend import PdfBackend
+from pixopdf.pdf.pikepdf_backend import PikePdfBackend
 from pixopdf.services.project_service import ProjectService
 from pixopdf.ui.main_window import MainWindow
 from pixopdf.ui.tool_modes import WorkspaceMode
@@ -29,6 +31,20 @@ def wait_for_operation(window: MainWindow, timeout_ms: int = 2000) -> None:
 
     def poll() -> None:
         if window._active_task is None:
+            loop.quit()
+        else:
+            QTimer.singleShot(10, poll)
+
+    QTimer.singleShot(10, poll)
+    QTimer.singleShot(timeout_ms, loop.quit)
+    loop.exec()
+
+
+def wait_for_compression_preview(window: MainWindow, timeout_ms: int = 5000) -> None:
+    loop = QEventLoop()
+
+    def poll() -> None:
+        if window._compression_preview_task is None:
             loop.quit()
         else:
             QTimer.singleShot(10, poll)
@@ -416,3 +432,46 @@ def test_selectable_mode_persists_and_is_kept_after_import(
     assert restored.active_mode is WorkspaceMode.MERGE
     assert restored.workspace.current_mode is WorkspaceMode.MERGE
     close_clean(restored)
+
+
+def test_compression_preview_is_exact_and_reused_from_cache(
+    tmp_path: Path,
+    qapp: QApplication,
+) -> None:
+    QSettings.setDefaultFormat(QSettings.Format.IniFormat)
+    QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, str(tmp_path))
+    source = tmp_path / "source.pdf"
+    with pikepdf.Pdf.new() as pdf:
+        pdf.add_blank_page()
+        pdf.save(source)
+    window = MainWindow(ProjectService(PikePdfBackend()))
+    window.project.add_document(SourceDocument.create(source, 1))
+    window.refresh()
+    settings: dict[str, object] = {
+        "action": "balanced",
+        "dpi": None,
+        "target_bytes": None,
+        "allow_aggressive": False,
+    }
+
+    window.request_compression_preview(settings)
+    wait_for_compression_preview(window)
+    qapp.processEvents()
+
+    assert window._compression_preview_task is None
+    assert len(window._compression_preview_cache) == 1
+    entry = next(iter(window._compression_preview_cache.values()))
+    assert entry.path.is_file()
+    assert entry.result.compressed_size == entry.path.stat().st_size
+    assert window.workspace.compress_preview_feedback.text() == window.t(
+        "compression_preview_ready"
+    )
+
+    window.request_compression_preview(settings)
+
+    assert window._compression_preview_task is None
+    assert len(window._compression_preview_cache) == 1
+    assert window.workspace.compress_preview_feedback.text() == window.t(
+        "compression_preview_cached"
+    )
+    close_clean(window)
