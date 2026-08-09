@@ -16,10 +16,10 @@ dependencies = [
     "pypdfium2>=4.30",
     "Pillow>=10",
     "packaging>=24",
+    "pyHanko>=0.25",
 ]
 
 [project.optional-dependencies]
-signatures = ["pyHanko>=0.25"]
 ocr = ["ocrmypdf>=16"]
 
 [project.scripts]

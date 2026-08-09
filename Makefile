@@ -12,7 +12,7 @@ install: ## Créer l'environnement Poetry et installer les dépendances de déve
 	$(POETRY) install --with dev
 
 install-all: ## Installer aussi les outils de build et les fonctionnalités optionnelles
-	$(POETRY) install --with dev,build --extras "signatures ocr"
+	$(POETRY) install --with dev,build --extras "ocr"
 
 lock: ## Régénérer poetry.lock sans mettre à jour les versions résolues
 	$(POETRY) lock

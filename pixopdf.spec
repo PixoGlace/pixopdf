@@ -9,6 +9,10 @@ app_name = str(metadata["APP_NAME"])
 app_version = str(metadata["VERSION"])
 
 datas, binaries, hiddenimports = collect_all("pypdfium2")
+signature_datas, signature_binaries, signature_hiddenimports = collect_all("pyhanko")
+datas.extend(signature_datas)
+binaries.extend(signature_binaries)
+hiddenimports.extend(signature_hiddenimports)
 datas.append((str(Path("LICENSE")), "."))
 asset_root = Path("assets")
 runtime_extensions = {".json", ".md", ".png", ".svg"}
