@@ -539,11 +539,11 @@ class SignatureService:
     @staticmethod
     def _load_pyhanko() -> tuple[Any, Any, Any]:
         try:
-            from pyhanko.pdf_utils.incremental_writer import (  # type: ignore[import-not-found]
+            from pyhanko.pdf_utils.incremental_writer import (
                 IncrementalPdfFileWriter,
             )
-            from pyhanko.sign import signers  # type: ignore[import-not-found]
-            from pyhanko.sign.fields import SigFieldSpec  # type: ignore[import-not-found]
+            from pyhanko.sign import signers
+            from pyhanko.sign.fields import SigFieldSpec
         except ImportError as exc:
             raise DigitalSignatureUnavailableError(
                 "La signature numérique nécessite pyHanko. Réinstallez les dépendances "

@@ -52,6 +52,7 @@ if sys.platform == "darwin":
     app = BUNDLE(  # noqa: F821
         collected,
         name=f"{app_name}.app",
+        icon="assets/PixoPDF.icns",
         bundle_identifier="com.pixoglace.pixopdf",
         info_plist={
             "CFBundleName": app_name,
@@ -60,6 +61,22 @@ if sys.platform == "darwin":
             "CFBundleVersion": app_version,
             "NSHighResolutionCapable": True,
         },
+    )
+elif sys.platform == "win32":
+    exe = EXE(  # noqa: F821
+        pyz,
+        a.scripts,
+        [],
+        exclude_binaries=True,
+        name=app_name,
+        console=False,
+        icon="assets/PixoPDF.ico",
+    )
+    collected = COLLECT(  # noqa: F821
+        exe,
+        a.binaries,
+        a.datas,
+        name=app_name,
     )
 else:
     exe = EXE(  # noqa: F821
@@ -70,4 +87,5 @@ else:
         [],
         name=app_name,
         console=False,
+        icon="assets/PixoPDF.png",
     )

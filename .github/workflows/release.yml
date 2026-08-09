@@ -83,18 +83,21 @@ jobs:
         shell: bash
         run: |
           expected_assets=(
-            PixoPDF-linux-x86_64.tar.gz
-            PixoPDF-windows-x86_64.exe
-            PixoPDF-windows-x86_64.zip
-            PixoPDF-macos-arm64.zip
-            PixoPDF-macos-x86_64.zip
+            PixoPDF-linux-x86_64-portable.tar.gz
+            PixoPDF-windows-x86_64-portable.zip
+            PixoPDF-windows-x86_64-setup.exe
+            PixoPDF-macos-arm64-portable.zip
+            PixoPDF-macos-arm64.dmg
+            PixoPDF-macos-x86_64-portable.zip
+            PixoPDF-macos-x86_64.dmg
           )
           for asset in "${expected_assets[@]}"; do
             test -s "release-assets/$asset"
           done
+          compgen -G "release-assets/pixopdf_*_amd64.deb" > /dev/null
           (
             cd release-assets
-            sha256sum PixoPDF-* > SHA256SUMS.txt
+            sha256sum PixoPDF-* pixopdf_*.deb > SHA256SUMS.txt
             cat SHA256SUMS.txt
           )
 

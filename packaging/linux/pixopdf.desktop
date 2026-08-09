@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=PixoPDF
+Comment=Organize, transform and protect PDF documents locally
+Exec=PixoPDF
+Icon=pixopdf
+Terminal=false
+Categories=Office;Utility;
+StartupNotify=true

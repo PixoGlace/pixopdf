@@ -64,25 +64,71 @@ jobs:
           poetry run python -m compileall -q src tests
           poetry run pytest -q
 
-      - name: Build Linux executable
-        run: poetry run pyinstaller --clean --noconfirm pixopdf.spec
+      - name: Generate packaging assets and build Linux executable
+        run: |
+          poetry run python packaging/create_packaging_art.py
+          poetry run pyinstaller --clean --noconfirm pixopdf.spec
 
-      - name: Verify and package Linux executable
+      - name: Verify and package Linux portable archive and Debian installer
         shell: bash
         run: |
           test -x dist/PixoPDF
           file dist/PixoPDF
-          mkdir -p release/package
-          install -m 755 dist/PixoPDF release/package/PixoPDF
-          archive="$PWD/release/PixoPDF-linux-x86_64.tar.gz"
-          tar -C release/package -czf "$archive" PixoPDF
-          tar -tzf "$archive"
+          version="$(poetry run python -c 'from pixopdf.config import VERSION; print(VERSION)')"
+          portable_root="release/PixoPDF-linux-x86_64-portable"
+          deb_root="release/deb-root"
+          mkdir -p "$portable_root" \
+            "$deb_root/DEBIAN" \
+            "$deb_root/opt/PixoPDF" \
+            "$deb_root/usr/bin" \
+            "$deb_root/usr/share/applications" \
+            "$deb_root/usr/share/icons/hicolor/256x256/apps" \
+            "$deb_root/usr/share/metainfo"
+          install -m 755 dist/PixoPDF "$portable_root/PixoPDF"
+          install -m 644 packaging/linux/pixopdf.desktop "$portable_root/pixopdf.desktop"
+          install -m 644 assets/PixoPDF.png "$portable_root/pixopdf.png"
+          install -m 644 LICENSE "$portable_root/LICENSE"
+          tar -C release -czf release/PixoPDF-linux-x86_64-portable.tar.gz \
+            PixoPDF-linux-x86_64-portable
+          tar -tzf release/PixoPDF-linux-x86_64-portable.tar.gz
 
-      - name: Upload Linux artifact
+          install -m 755 dist/PixoPDF "$deb_root/opt/PixoPDF/PixoPDF"
+          ln -s /opt/PixoPDF/PixoPDF "$deb_root/usr/bin/PixoPDF"
+          install -m 644 packaging/linux/pixopdf.desktop \
+            "$deb_root/usr/share/applications/pixopdf.desktop"
+          install -m 644 assets/PixoPDF.png \
+            "$deb_root/usr/share/icons/hicolor/256x256/apps/pixopdf.png"
+          install -m 644 packaging/linux/io.github.pixoglace.pixopdf.metainfo.xml \
+            "$deb_root/usr/share/metainfo/io.github.pixoglace.pixopdf.metainfo.xml"
+          printf '%s\n' \
+            'Package: pixopdf' \
+            "Version: $version" \
+            'Section: utils' \
+            'Priority: optional' \
+            'Architecture: amd64' \
+            'Maintainer: PixoGlace' \
+            'Homepage: https://github.com/PixoGlace/pixopdf' \
+            'Description: Organize, transform and protect PDF documents locally' \
+            > "$deb_root/DEBIAN/control"
+          dpkg-deb --root-owner-group --build "$deb_root" \
+            "release/pixopdf_${version}_amd64.deb"
+          dpkg-deb --info "release/pixopdf_${version}_amd64.deb"
+          dpkg-deb --contents "release/pixopdf_${version}_amd64.deb"
+
+      - name: Upload Linux portable artifact
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ inputs.artifact_prefix }}-linux-x86_64
-          path: release/PixoPDF-linux-x86_64.tar.gz
+          name: ${{ inputs.artifact_prefix }}-linux-x86_64-portable
+          path: release/PixoPDF-linux-x86_64-portable.tar.gz
+          if-no-files-found: error
+          retention-days: ${{ inputs.retention_days }}
+          compression-level: 0
+
+      - name: Upload Linux installer artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact_prefix }}-linux-amd64-installer
+          path: release/pixopdf_*_amd64.deb
           if-no-files-found: error
           retention-days: ${{ inputs.retention_days }}
           compression-level: 0
@@ -108,6 +154,9 @@ jobs:
           python -m pip install "poetry==${{ env.POETRY_VERSION }}"
           poetry --version
 
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress --yes
+
       - name: Install locked dependencies
         run: |
           poetry check --lock
@@ -118,34 +167,53 @@ jobs:
           poetry run python -m compileall -q src tests
           poetry run pytest -q
 
-      - name: Build Windows executable
-        run: poetry run pyinstaller --clean --noconfirm pixopdf.spec
+      - name: Generate packaging assets and build Windows application
+        run: |
+          poetry run python packaging/create_packaging_art.py
+          poetry run pyinstaller --clean --noconfirm pixopdf.spec
 
-      - name: Verify and package Windows executable
+      - name: Verify and package Windows portable archive and installer
         shell: pwsh
         run: |
-          if (-not (Test-Path -LiteralPath "dist/PixoPDF.exe" -PathType Leaf)) {
-              throw "PyInstaller did not produce dist/PixoPDF.exe"
+          if (-not (Test-Path -LiteralPath "dist/PixoPDF/PixoPDF.exe" -PathType Leaf)) {
+              throw "PyInstaller did not produce dist/PixoPDF/PixoPDF.exe"
           }
           New-Item -ItemType Directory -Force -Path "release" | Out-Null
-          Copy-Item -LiteralPath "dist/PixoPDF.exe" `
-              -Destination "release/PixoPDF-windows-x86_64.exe" -Force
-          Compress-Archive -LiteralPath "dist/PixoPDF.exe" `
-              -DestinationPath "release/PixoPDF-windows-x86_64.zip" -Force
+          Compress-Archive -Path "dist/PixoPDF" `
+              -DestinationPath "release/PixoPDF-windows-x86_64-portable.zip" -Force
           $verificationPath = Join-Path $env:RUNNER_TEMP "pixopdf-windows-archive"
-          Expand-Archive -LiteralPath "release/PixoPDF-windows-x86_64.zip" `
+          Expand-Archive -LiteralPath "release/PixoPDF-windows-x86_64-portable.zip" `
               -DestinationPath $verificationPath -Force
-          if (-not (Test-Path -LiteralPath "$verificationPath/PixoPDF.exe" -PathType Leaf)) {
+          if (-not (Test-Path -LiteralPath "$verificationPath/PixoPDF/PixoPDF.exe" -PathType Leaf)) {
               throw "The Windows archive does not contain PixoPDF.exe"
           }
+          $env:PIXO_APP_NAME = "PixoPDF"
+          $env:PIXO_APP_VERSION = poetry run python -c "from pixopdf.config import VERSION; print(VERSION)"
+          $env:PIXO_SOURCE_DIR = "$PWD\dist\PixoPDF"
+          $env:PIXO_OUTPUT_DIR = "$PWD\release"
+          $env:PIXO_ROOT_DIR = "$PWD"
+          $env:PIXO_WIZARD_IMAGE = "$PWD\build\packaging\windows-wizard.bmp"
+          $env:PIXO_WIZARD_SMALL_IMAGE = "$PWD\build\packaging\windows-small.bmp"
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" `
+              "packaging\windows\PixoPDF.iss"
+          if (-not (Test-Path -LiteralPath "release/PixoPDF-windows-x86_64-setup.exe" -PathType Leaf)) {
+              throw "Inno Setup did not produce the Windows installer"
+          }
 
-      - name: Upload Windows artifacts
+      - name: Upload Windows portable artifact
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ inputs.artifact_prefix }}-windows-x86_64
-          path: |
-            release/PixoPDF-windows-x86_64.exe
-            release/PixoPDF-windows-x86_64.zip
+          name: ${{ inputs.artifact_prefix }}-windows-x86_64-portable
+          path: release/PixoPDF-windows-x86_64-portable.zip
+          if-no-files-found: error
+          retention-days: ${{ inputs.retention_days }}
+          compression-level: 0
+
+      - name: Upload Windows installer artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact_prefix }}-windows-x86_64-installer
+          path: release/PixoPDF-windows-x86_64-setup.exe
           if-no-files-found: error
           retention-days: ${{ inputs.retention_days }}
           compression-level: 0
@@ -186,6 +254,9 @@ jobs:
           python -m pip install "poetry==${{ env.POETRY_VERSION }}"
           poetry --version
 
+      - name: Install DMG tooling
+        run: brew install create-dmg
+
       - name: Install locked dependencies
         run: |
           poetry check --lock
@@ -196,8 +267,10 @@ jobs:
           poetry run python -m compileall -q src tests
           poetry run pytest -q
 
-      - name: Build macOS application
-        run: poetry run pyinstaller --clean --noconfirm pixopdf.spec
+      - name: Generate packaging assets and build macOS application
+        run: |
+          poetry run python packaging/create_packaging_art.py
+          poetry run pyinstaller --clean --noconfirm pixopdf.spec
 
       - name: Verify, sign and package macOS application
         shell: bash
@@ -216,15 +289,43 @@ jobs:
           codesign --force --deep --sign - --timestamp=none "$app"
           codesign --verify --deep --strict --verbose=2 "$app"
           mkdir -p release
-          archive="release/PixoPDF-macos-${{ matrix.arch }}.zip"
+          archive="release/PixoPDF-macos-${{ matrix.arch }}-portable.zip"
           ditto -c -k --sequesterRsrc --keepParent "$app" "$archive"
           unzip -t "$archive"
+          rm -rf build/dmg-stage
+          mkdir -p build/dmg-stage
+          cp -R "$app" build/dmg-stage/PixoPDF.app
+          create-dmg \
+            --volname "PixoPDF" \
+            --volicon "assets/PixoPDF.icns" \
+            --background "assets/dmg/pixopdf-dmg-background.png" \
+            --window-pos 200 120 \
+            --window-size 660 420 \
+            --text-size 13 \
+            --icon-size 112 \
+            --icon "PixoPDF.app" 128 255 \
+            --hide-extension "PixoPDF.app" \
+            --app-drop-link 515 255 \
+            --hdiutil-quiet \
+            --no-internet-enable \
+            "release/PixoPDF-macos-${{ matrix.arch }}.dmg" \
+            "build/dmg-stage"
+          hdiutil verify "release/PixoPDF-macos-${{ matrix.arch }}.dmg"
 
-      - name: Upload macOS artifact
+      - name: Upload macOS portable artifact
         uses: actions/upload-artifact@v7
         with:
-          name: ${{ inputs.artifact_prefix }}-macos-${{ matrix.arch }}
-          path: release/PixoPDF-macos-${{ matrix.arch }}.zip
+          name: ${{ inputs.artifact_prefix }}-macos-${{ matrix.arch }}-portable
+          path: release/PixoPDF-macos-${{ matrix.arch }}-portable.zip
+          if-no-files-found: error
+          retention-days: ${{ inputs.retention_days }}
+          compression-level: 0
+
+      - name: Upload macOS installer artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact_prefix }}-macos-${{ matrix.arch }}-installer
+          path: release/PixoPDF-macos-${{ matrix.arch }}.dmg
           if-no-files-found: error
           retention-days: ${{ inputs.retention_days }}
           compression-level: 0

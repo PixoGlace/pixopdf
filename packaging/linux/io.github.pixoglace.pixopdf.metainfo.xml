@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.pixoglace.pixopdf</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-only</project_license>
+  <name>PixoPDF</name>
+  <summary>Organize, transform and protect PDF documents locally</summary>
+  <description>
+    <p>
+      PixoPDF is a private desktop toolbox for organizing, merging, splitting,
+      converting, protecting, signing and compressing PDF documents locally.
+    </p>
+  </description>
+  <launchable type="desktop-id">pixopdf.desktop</launchable>
+  <url type="homepage">https://github.com/PixoGlace/pixopdf</url>
+  <url type="bugtracker">https://github.com/PixoGlace/pixopdf/issues</url>
+  <developer id="io.github.pixoglace">
+    <name>PixoGlace</name>
+  </developer>
+  <categories>
+    <category>Office</category>
+    <category>Utility</category>
+  </categories>
+</component>

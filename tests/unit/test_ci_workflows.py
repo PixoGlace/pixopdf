@@ -25,8 +25,6 @@ def test_ci_workflow_set_is_complete_and_specific_to_pixopdf() -> None:
         "pixocrop",
         "src/pixocrop",
         "release-linux",
-        "create_packaging_art.py",
-        "inno setup",
         "hidden-import fitz",
         '".[dev,build]"',
         'python-version: "3.10"',
@@ -49,13 +47,21 @@ def test_reusable_build_uses_poetry_spec_and_real_portable_artifacts() -> None:
     assert "actions/upload-artifact@v7" in build
 
     for artifact in (
-        "PixoPDF-linux-x86_64.tar.gz",
-        "PixoPDF-windows-x86_64.exe",
-        "PixoPDF-windows-x86_64.zip",
-        "PixoPDF-macos-${{ matrix.arch }}.zip",
+        "PixoPDF-linux-x86_64-portable.tar.gz",
+        "pixopdf_*_amd64.deb",
+        "PixoPDF-windows-x86_64-portable.zip",
+        "PixoPDF-windows-x86_64-setup.exe",
+        "PixoPDF-macos-${{ matrix.arch }}-portable.zip",
+        "PixoPDF-macos-${{ matrix.arch }}.dmg",
     ):
         assert artifact in build
 
+    assert "packaging/create_packaging_art.py" in build
+    assert "choco install innosetup" in build
+    assert "packaging\\windows\\PixoPDF.iss" in build
+    assert "dpkg-deb --root-owner-group --build" in build
+    assert "brew install create-dmg" in build
+    assert "hdiutil verify" in build
     assert "macos-15-intel" in build
     assert "runner: macos-15" in build
     assert "com.pixoglace.pixopdf" in build
@@ -69,6 +75,18 @@ def test_release_is_tag_guarded_and_limits_write_permission_to_publication() -> 
     assert "source_ref: ${{ needs.validate.outputs.release_tag }}" in release
     assert "actions/download-artifact@v8" in release
     assert "SHA256SUMS.txt" in release
+    assert "sha256sum PixoPDF-* pixopdf_*.deb" in release
+    for asset in (
+        "PixoPDF-linux-x86_64-portable.tar.gz",
+        "pixopdf_*_amd64.deb",
+        "PixoPDF-windows-x86_64-portable.zip",
+        "PixoPDF-windows-x86_64-setup.exe",
+        "PixoPDF-macos-arm64-portable.zip",
+        "PixoPDF-macos-arm64.dmg",
+        "PixoPDF-macos-x86_64-portable.zip",
+        "PixoPDF-macos-x86_64.dmg",
+    ):
+        assert asset in release
     assert "gh release create" in release
     assert "GH_REPO: ${{ github.repository }}" in release
     assert "RELEASE_TAG: ${{ needs.validate.outputs.release_tag }}" in release
