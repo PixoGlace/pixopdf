@@ -41,7 +41,10 @@ PixoPDF is a free, cross-platform PDF toolbox by [PixoGlace](https://github.com/
 - Add visual signatures and date stamps to selected pages, or apply a verifiable
   PKCS#12 digital signature with pyHanko
 - Compress with light, balanced or maximum profiles, or use Advanced mode to
-  choose a DPI, a target size, or both, with an instant pre-export size estimate
+  choose a DPI, a target size, or both; a debounced background precompression
+  reports the exact output size and its reusable result is cached
+- Follow page-level compression progress and cancel a preview or export safely;
+  cancellation never replaces an existing destination file
 
 OCR, advanced annotations and queued batch recipes remain on the roadmap. Every
 tool currently shown in the permanent operation bar is functional.

@@ -29,8 +29,18 @@ publish through sibling temporary files or staged directories. A digital
 signature is always the final byte-level operation. Target-size compression
 tests bounded vector-preserving candidates first, retains only the smallest
 temporary candidate, and only allows the disclosed page-raster fallback after
-explicit opt-in. The UI provides an indicative live estimate; the exact size is
-reported from the generated file.
+explicit opt-in. Compression reports stage and page-level progress and checks a
+cooperative cancellation token throughout expensive loops and immediately before
+the atomic destination replacement.
+
+The compression panel keeps its immediate indicative estimate while the user is
+editing settings, then starts a debounced exact precompression in a dedicated
+single-worker pool. Exact outputs are stored in a four-entry disk-backed LRU cache
+keyed by source identity, active page state and immutable compression options.
+Selecting the same settings updates the UI immediately, and exporting can publish
+the cached artifact atomically instead of compressing it again. Stale, cancelled
+and evicted previews are removed automatically, and the complete preview directory
+is deleted when the application closes.
 
 Split planning converts each chosen strategy into zero-based groups over active
 pages. Every group is exported to a temporary directory first; completed outputs
