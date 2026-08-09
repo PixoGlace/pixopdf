@@ -32,6 +32,8 @@ class _SiteHTMLParser(HTMLParser):
         self.event_handlers: list[str] = []
         self.translation_keys: list[str] = []
         self.download_platforms: set[str] = set()
+        self.download_kinds: set[str] = set()
+        self.download_targets: set[tuple[str, str, str]] = set()
 
     def handle_starttag(
         self,
@@ -63,6 +65,11 @@ class _SiteHTMLParser(HTMLParser):
         platform = attributes.get("data-download-platform")
         if platform:
             self.download_platforms.add(platform)
+            kind = attributes.get("data-download-kind", "")
+            architecture = attributes.get("data-download-arch", "")
+            if kind:
+                self.download_kinds.add(kind)
+                self.download_targets.add((platform, kind, architecture))
 
         href = attributes.get("href")
         if href:
@@ -185,6 +192,19 @@ def test_docs_javascript_is_vanilla_and_resolves_direct_release_assets() -> None
 
     _markup, parser = _parse_page()
     assert parser.download_platforms == {"auto", "macos", "windows", "linux"}
+    assert parser.download_kinds == {"native", "portable"}
+    assert {
+        ("macos", "native", "arm64"),
+        ("macos", "portable", "arm64"),
+        ("macos", "native", "x86_64"),
+        ("macos", "portable", "x86_64"),
+        ("windows", "native", "x86_64"),
+        ("windows", "portable", "x86_64"),
+        ("linux", "native", "amd64"),
+        ("linux", "portable", "x86_64"),
+    }.issubset(parser.download_targets)
+    assert "dataset.downloadKind" in source
+    assert "dataset.downloadArch" in source
 
 
 def test_docs_site_keeps_gplv3_and_hosting_configuration() -> None:

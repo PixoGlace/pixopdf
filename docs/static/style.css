@@ -2124,12 +2124,19 @@ body:has(#theme-toggle:checked) .feature-card:nth-child(5) .feature-icon {
   height: 14px;
 }
 
+.platform-download-options {
+  display: grid;
+  gap: 8px;
+  margin-top: auto;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .platform-download {
   display: grid;
   min-height: 68px;
   align-content: center;
   gap: 2px;
-  margin-top: auto;
+  margin-top: 0;
   padding: 12px 14px;
   border: 1px solid rgba(20, 184, 166, 0.38);
   border-radius: 13px;
@@ -2139,6 +2146,11 @@ body:has(#theme-toggle:checked) .feature-card:nth-child(5) .feature-icon {
     background-color 180ms ease,
     border-color 180ms ease,
     transform 180ms ease;
+}
+
+.platform-download.compact {
+  min-height: 55px;
+  padding-block: 8px;
 }
 
 .platform-download:hover {
