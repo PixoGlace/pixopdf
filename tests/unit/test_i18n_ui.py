@@ -53,14 +53,19 @@ def test_workspace_switches_four_languages_and_keeps_pdf_order_ltr(
         workspace.set_language("en")
         assert workspace.home_title.text() == "Welcome to PixoPDF"
         assert workspace.mode_buttons[WorkspaceMode.SPLIT].text() == "Split"
+        assert workspace.convert_pdf_images_radio.text() == "PDF to images"
+        assert workspace.compress_advanced_radio.text() == "Advanced mode"
+        assert workspace.compress_use_target.text() == "Target size"
         assert workspace.layoutDirection() == Qt.LayoutDirection.LeftToRight
 
         workspace.set_language("zh")
         assert workspace.home_title.text() == "欢迎使用 PixoPDF"
         assert workspace.mode_buttons[WorkspaceMode.MERGE].text() == "合并"
+        assert workspace.protect_password_radio.text() == "打开密码"
 
         workspace.set_language("ar")
         assert workspace.home_title.text() == "مرحباً بك في PixoPDF"
+        assert workspace.sign_digital_radio.text() == "توقيع رقمي"
         assert workspace.layoutDirection() == Qt.LayoutDirection.RightToLeft
         assert workspace.pages.layoutDirection() == Qt.LayoutDirection.LeftToRight
     finally:

@@ -118,9 +118,13 @@ def test_workspace_merge_and_layout_actions_emit_expected_requests(
         (1, *A5_PORTRAIT),
     ]
 
-    planned_layout_actions = workspace.mode_specific_actions[WorkspaceMode.LAYOUT][3:]
-    assert planned_layout_actions
-    assert all(not button.isEnabled() for button in planned_layout_actions)
+    advanced_layout_actions = workspace.mode_specific_actions[WorkspaceMode.LAYOUT][3:]
+    assert advanced_layout_actions == [workspace.layout_resize_radio, workspace.layout_nup_radio]
+    assert all(button.isEnabled() for button in advanced_layout_actions)
+    assert workspace.layout_resize_radio.isChecked()
+    workspace.layout_nup_radio.click()
+    assert workspace.selected_operation() == "nup"
+    assert workspace.layout_nup_controls.isVisibleTo(workspace)
     workspace.shutdown()
 
 
@@ -285,4 +289,75 @@ def test_workspace_keeps_mode_and_panel_after_refresh(qapp: QApplication) -> Non
     assert workspace.options_stack.currentWidget() is selected_panel
     assert workspace.mode_actions[WorkspaceMode.MERGE].isChecked()
     assert workspace.pages_heading.text() == MODE_SPECS[WorkspaceMode.MERGE].workspace_title
+    workspace.shutdown()
+
+
+def test_all_advanced_workflows_are_active_and_validate_their_options(
+    qapp: QApplication,
+) -> None:
+    workspace = WorkspacePage(NoRenderRenderer())
+    workspace.refresh(blank_project(2))
+
+    assert all(spec.is_selectable for spec in MODE_SPECS.values())
+    assert all(button.isEnabled() for button in workspace.mode_buttons.values())
+
+    workspace.set_mode(WorkspaceMode.CONVERT)
+    workspace.convert_images_pdf_radio.click()
+    workspace.set_conversion_images(["one.png", "two.jpg"])
+    assert workspace.selected_operation() == "images_to_pdf"
+    assert workspace.export_button.isEnabled()
+    assert workspace.operation_options()["image_paths"] == ("one.png", "two.jpg")
+
+    workspace.set_mode(WorkspaceMode.PROTECT)
+    workspace.protect_user_password.setText("secret")
+    assert not workspace.export_button.isEnabled()
+    workspace.protect_confirm_password.setText("secret")
+    assert workspace.export_button.isEnabled()
+    assert workspace.operation_options()["action"] == "password"
+
+    workspace.set_mode(WorkspaceMode.SIGN)
+    assert not workspace.export_button.isEnabled()
+    workspace.set_signature_image("signature.png")
+    assert workspace.export_button.isEnabled()
+    workspace.sign_date_radio.click()
+    assert workspace.selected_operation() == "date"
+    assert workspace.export_button.isEnabled()
+
+    workspace.set_mode(WorkspaceMode.COMPRESS)
+    workspace.compress_advanced_radio.click()
+    workspace.compress_dpi.setValue(144)
+    workspace.compress_use_target.setChecked(True)
+    workspace.compress_target_size.setValue(2.5)
+    options = workspace.operation_options()
+    assert options["action"] == "advanced"
+    assert options["dpi"] == 144
+    assert options["target_bytes"] == 2_500_000
+    assert "2.5" in workspace.export_button.text()
+    workspace.shutdown()
+
+
+def test_compression_estimate_updates_immediately_with_advanced_controls(
+    tmp_path: Path,
+    qapp: QApplication,
+) -> None:
+    source = tmp_path / "estimate.pdf"
+    source.write_bytes(b"0" * 10_000_000)
+    document = SourceDocument.create(source, 0)
+    project = PdfProject(documents={document.id: document})
+    workspace = WorkspacePage(NoRenderRenderer())
+    workspace.refresh(project)
+    workspace.set_mode(WorkspaceMode.COMPRESS)
+
+    balanced = workspace.estimated_compression_size()
+    workspace.compress_advanced_radio.click()
+    workspace.compress_dpi.setValue(72)
+    dpi_estimate = workspace.estimated_compression_size()
+    workspace.compress_use_target.setChecked(True)
+    workspace.compress_target_size.setValue(1.5)
+    target_estimate = workspace.estimated_compression_size()
+
+    assert balanced == 6_200_000
+    assert dpi_estimate is not None and dpi_estimate < balanced
+    assert target_estimate == 1_500_000
+    assert "1.50" in workspace.compress_summary_label.text()
     workspace.shutdown()

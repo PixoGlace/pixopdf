@@ -7,7 +7,7 @@ import pytest
 from PySide6.QtWidgets import QApplication
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="session", autouse=True)
 def qapp() -> Iterator[QApplication]:
     app = QApplication.instance()
     if not isinstance(app, QApplication):
