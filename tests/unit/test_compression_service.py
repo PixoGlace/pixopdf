@@ -6,11 +6,14 @@ import pytest
 from pixopdf.services import compression_service
 from pixopdf.services.compression_service import (
     MAX_TARGET_ITERATIONS,
+    CompressionCancelledError,
     CompressionError,
     CompressionMode,
     CompressionOptions,
     CompressionProfile,
+    CompressionProgress,
     CompressionService,
+    CompressionStage,
 )
 
 
@@ -98,6 +101,7 @@ def test_failed_candidate_keeps_source_and_existing_destination(
         _source: Path,
         temporary_destination: Path,
         _settings: object,
+        **_kwargs: object,
     ) -> None:
         temporary_destination.write_bytes(b"partial")
         raise OSError("simulated failure")
@@ -112,5 +116,43 @@ def test_failed_candidate_keeps_source_and_existing_destination(
         CompressionService().compress(source, destination)
 
     assert source.read_bytes() == original
+    assert destination.read_bytes() == b"existing destination"
+    assert list(tmp_path.glob(".*-compression-*")) == []
+
+
+def test_compression_reports_monotonic_page_progress(tmp_path: Path) -> None:
+    source = tmp_path / "source.pdf"
+    destination = tmp_path / "destination.pdf"
+    create_small_pdf(source)
+    updates: list[CompressionProgress] = []
+
+    CompressionService().compress(source, destination, progress=updates.append)
+
+    assert updates[0].stage is CompressionStage.PREPARING
+    assert updates[-1] == CompressionProgress(100, CompressionStage.COMPLETE)
+    assert [update.percent for update in updates] == sorted(update.percent for update in updates)
+    assert any(update.current == 1 and update.total == 1 for update in updates)
+
+
+def test_cancelled_compression_preserves_existing_destination(tmp_path: Path) -> None:
+    source = tmp_path / "source.pdf"
+    destination = tmp_path / "destination.pdf"
+    create_small_pdf(source)
+    destination.write_bytes(b"existing destination")
+    cancel = False
+
+    def progress(update: CompressionProgress) -> None:
+        nonlocal cancel
+        if update.stage is CompressionStage.OPTIMIZING:
+            cancel = True
+
+    with pytest.raises(CompressionCancelledError):
+        CompressionService().compress(
+            source,
+            destination,
+            progress=progress,
+            cancelled=lambda: cancel,
+        )
+
     assert destination.read_bytes() == b"existing destination"
     assert list(tmp_path.glob(".*-compression-*")) == []

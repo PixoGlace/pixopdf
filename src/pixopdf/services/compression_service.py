@@ -4,6 +4,7 @@ import math
 import os
 import shutil
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from enum import StrEnum
 from io import BytesIO
@@ -22,6 +23,10 @@ class CompressionError(RuntimeError):
     """Raised when a PDF cannot be compressed safely."""
 
 
+class CompressionCancelledError(CompressionError):
+    """Raised when a caller cancels a compression before publication."""
+
+
 class CompressionMode(StrEnum):
     PROFILE = "profile"
     TARGET_SIZE = "target_size"
@@ -32,6 +37,28 @@ class CompressionProfile(StrEnum):
     LIGHT = "light"
     BALANCED = "balanced"
     MAXIMUM = "maximum"
+
+
+class CompressionStage(StrEnum):
+    PREPARING = "preparing"
+    OPTIMIZING = "optimizing"
+    TESTING = "testing"
+    RASTERIZING = "rasterizing"
+    SAVING = "saving"
+    COMPLETE = "complete"
+
+
+@dataclass(frozen=True, slots=True)
+class CompressionProgress:
+    percent: int
+    stage: CompressionStage
+    current: int = 0
+    total: int = 0
+
+
+type ProgressCallback = Callable[[CompressionProgress], None]
+type CancelCheck = Callable[[], bool]
+type PageProgressCallback = Callable[[int, int], None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -225,8 +252,13 @@ class CompressionService:
         source: Path,
         destination: Path,
         options: CompressionOptions | None = None,
+        *,
+        progress: ProgressCallback | None = None,
+        cancelled: CancelCheck | None = None,
     ) -> CompressionResult:
         selected = options or CompressionOptions()
+        _check_cancelled(cancelled)
+        _emit_progress(progress, 0, CompressionStage.PREPARING)
         source_path = Path(source).expanduser()
         destination_path = Path(destination).expanduser()
         if not source_path.is_file():
@@ -250,6 +282,8 @@ class CompressionService:
                         temporary_root,
                         original_size,
                         selected,
+                        progress,
+                        cancelled,
                     )
                 elif selected.target_size_bytes is not None:
                     result = self._compress_to_target(
@@ -258,6 +292,8 @@ class CompressionService:
                         temporary_root,
                         original_size,
                         selected,
+                        progress,
+                        cancelled,
                     )
                 else:
                     result = self._compress_advanced_dpi(
@@ -266,6 +302,8 @@ class CompressionService:
                         temporary_root,
                         original_size,
                         selected,
+                        progress,
+                        cancelled,
                     )
         except (OSError, PdfRenderError, pikepdf.PdfError, pikepdf.PasswordError) as exc:
             raise CompressionError(f"Impossible de compresser {source_path.name}") from exc
@@ -278,20 +316,42 @@ class CompressionService:
         temporary_root: Path,
         original_size: int,
         options: CompressionOptions,
+        progress: ProgressCallback | None,
+        cancelled: CancelCheck | None,
     ) -> CompressionResult:
         candidate_path = temporary_root / "profile.pdf"
         settings = _PROFILE_SETTINGS[options.profile]
-        _write_vector_preserving_candidate(source, candidate_path, settings)
+
+        def report_page(current: int, total: int) -> None:
+            _emit_progress(
+                progress,
+                5 + round(82 * current / max(1, total)),
+                CompressionStage.OPTIMIZING,
+                current,
+                total,
+            )
+
+        _emit_progress(progress, 5, CompressionStage.OPTIMIZING)
+        _write_vector_preserving_candidate(
+            source,
+            candidate_path,
+            settings,
+            cancelled=cancelled,
+            page_progress=report_page,
+        )
+        _check_cancelled(cancelled)
         candidate = _Candidate(candidate_path, candidate_path.stat().st_size, False, settings)
         baseline = _copy_candidate(source, temporary_root / "source.pdf")
         chosen = min((baseline, candidate), key=lambda item: item.size)
+        _emit_progress(progress, 94, CompressionStage.SAVING)
+        _check_cancelled(cancelled)
         os.replace(chosen.path, destination)
         warning = None
         if chosen.size >= original_size:
             warning = (
                 "Le PDF source est déjà optimisé ; la sortie ne peut pas être réduite davantage."
             )
-        return CompressionResult(
+        result = CompressionResult(
             source=source,
             destination=destination,
             mode=options.mode,
@@ -309,6 +369,8 @@ class CompressionService:
             ),
             warning=warning,
         )
+        _emit_progress(progress, 100, CompressionStage.COMPLETE)
+        return result
 
     def _compress_advanced_dpi(
         self,
@@ -317,17 +379,39 @@ class CompressionService:
         temporary_root: Path,
         original_size: int,
         options: CompressionOptions,
+        progress: ProgressCallback | None,
+        cancelled: CancelCheck | None,
     ) -> CompressionResult:
         if options.dpi is None:
             raise ValueError("La résolution avancée est manquante")
         settings = _ImageSettings(options.dpi, options.jpeg_quality)
         candidate_path = temporary_root / "advanced.pdf"
-        _write_vector_preserving_candidate(source, candidate_path, settings)
+
+        def report_page(current: int, total: int) -> None:
+            _emit_progress(
+                progress,
+                5 + round(82 * current / max(1, total)),
+                CompressionStage.OPTIMIZING,
+                current,
+                total,
+            )
+
+        _emit_progress(progress, 5, CompressionStage.OPTIMIZING)
+        _write_vector_preserving_candidate(
+            source,
+            candidate_path,
+            settings,
+            cancelled=cancelled,
+            page_progress=report_page,
+        )
+        _check_cancelled(cancelled)
         candidate = _Candidate(candidate_path, candidate_path.stat().st_size, False, settings)
         baseline = _copy_candidate(source, temporary_root / "source.pdf")
         chosen = min((baseline, candidate), key=lambda item: item.size)
+        _emit_progress(progress, 94, CompressionStage.SAVING)
+        _check_cancelled(cancelled)
         os.replace(chosen.path, destination)
-        return CompressionResult(
+        result = CompressionResult(
             source=source,
             destination=destination,
             mode=options.mode,
@@ -349,6 +433,8 @@ class CompressionService:
                 else None
             ),
         )
+        _emit_progress(progress, 100, CompressionStage.COMPLETE)
+        return result
 
     def _compress_to_target(
         self,
@@ -357,6 +443,8 @@ class CompressionService:
         temporary_root: Path,
         original_size: int,
         options: CompressionOptions,
+        progress: ProgressCallback | None,
+        cancelled: CancelCheck | None,
     ) -> CompressionResult:
         target = options.target_size_bytes
         if target is None:  # Protected by CompressionOptions, useful for type narrowing.
@@ -364,8 +452,9 @@ class CompressionService:
 
         baseline = _copy_candidate(source, temporary_root / "source.pdf")
         if baseline.size <= target:
+            _check_cancelled(cancelled)
             os.replace(baseline.path, destination)
-            return CompressionResult(
+            result = CompressionResult(
                 source=source,
                 destination=destination,
                 mode=options.mode,
@@ -383,6 +472,8 @@ class CompressionService:
                     "Le fichier source respectait déjà la taille cible ; il a été copié sans perte."
                 ),
             )
+            _emit_progress(progress, 100, CompressionStage.COMPLETE)
+            return result
 
         vector_settings = (
             _advanced_vector_settings(options.dpi)
@@ -394,12 +485,47 @@ class CompressionService:
             if options.mode is CompressionMode.ADVANCED and options.dpi is not None
             else _TARGET_RASTER_SETTINGS
         )
+        total_attempts = len(vector_settings) + (
+            len(raster_settings) if options.allow_raster_fallback else 0
+        )
         best = baseline
         iterations = 0
         chosen: _Candidate | None = None
         for index, settings in enumerate(vector_settings, start=1):
+            _check_cancelled(cancelled)
             candidate_path = temporary_root / f"vector-{index}.pdf"
-            _write_vector_preserving_candidate(source, candidate_path, settings)
+
+            completed_attempts = iterations
+
+            def report_vector_page(
+                current: int,
+                total: int,
+                base: int = completed_attempts,
+            ) -> None:
+                completed = base + current / max(1, total)
+                _emit_progress(
+                    progress,
+                    4 + round(88 * completed / max(1, total_attempts)),
+                    CompressionStage.TESTING,
+                    base + 1,
+                    total_attempts,
+                )
+
+            _emit_progress(
+                progress,
+                4 + round(88 * iterations / max(1, total_attempts)),
+                CompressionStage.TESTING,
+                iterations + 1,
+                total_attempts,
+            )
+            _write_vector_preserving_candidate(
+                source,
+                candidate_path,
+                settings,
+                cancelled=cancelled,
+                page_progress=report_vector_page,
+            )
+            _check_cancelled(cancelled)
             candidate = _Candidate(candidate_path, candidate_path.stat().st_size, False, settings)
             iterations += 1
             if candidate.size <= target:
@@ -414,8 +540,40 @@ class CompressionService:
             and iterations < len(vector_settings) + len(raster_settings)
         ):
             for index, settings in enumerate(raster_settings, start=1):
+                _check_cancelled(cancelled)
                 candidate_path = temporary_root / f"raster-{index}.pdf"
-                self._write_raster_candidate(source, candidate_path, settings)
+
+                completed_attempts = iterations
+
+                def report_raster_page(
+                    current: int,
+                    total: int,
+                    base: int = completed_attempts,
+                ) -> None:
+                    completed = base + current / max(1, total)
+                    _emit_progress(
+                        progress,
+                        4 + round(88 * completed / max(1, total_attempts)),
+                        CompressionStage.RASTERIZING,
+                        base + 1,
+                        total_attempts,
+                    )
+
+                _emit_progress(
+                    progress,
+                    4 + round(88 * iterations / max(1, total_attempts)),
+                    CompressionStage.RASTERIZING,
+                    iterations + 1,
+                    total_attempts,
+                )
+                self._write_raster_candidate(
+                    source,
+                    candidate_path,
+                    settings,
+                    cancelled=cancelled,
+                    page_progress=report_raster_page,
+                )
+                _check_cancelled(cancelled)
                 candidate = _Candidate(
                     candidate_path,
                     candidate_path.stat().st_size,
@@ -433,8 +591,10 @@ class CompressionService:
             chosen = best
         target_reached = chosen.size <= target
         warning = _target_warning(chosen, target_reached, target, options.allow_raster_fallback)
+        _emit_progress(progress, 96, CompressionStage.SAVING)
+        _check_cancelled(cancelled)
         os.replace(chosen.path, destination)
-        return CompressionResult(
+        result = CompressionResult(
             source=source,
             destination=destination,
             mode=options.mode,
@@ -452,12 +612,17 @@ class CompressionService:
             ),
             warning=warning,
         )
+        _emit_progress(progress, 100, CompressionStage.COMPLETE)
+        return result
 
     def _write_raster_candidate(
         self,
         source: Path,
         destination: Path,
         settings: _ImageSettings,
+        *,
+        cancelled: CancelCheck | None,
+        page_progress: PageProgressCallback | None,
     ) -> None:
         with tempfile.TemporaryDirectory(
             prefix=f".{destination.stem}-pages-",
@@ -480,6 +645,7 @@ class CompressionService:
                 if page_count < 1:
                     raise CompressionError("Le PDF ne contient aucune page")
                 for page_index, (width, height) in enumerate(page_sizes):
+                    _check_cancelled(cancelled)
                     pixel_width = max(1, math.ceil(width / 72 * settings.dpi))
                     pixel_height = max(1, math.ceil(height / 72 * settings.dpi))
                     png_data = self.renderer.render_page(
@@ -505,6 +671,9 @@ class CompressionService:
                     with pikepdf.open(page_pdf_path) as page_pdf:
                         output.pages.append(page_pdf.pages[0])
                     page_pdf_path.unlink(missing_ok=True)
+                    if page_progress is not None:
+                        page_progress(page_index + 1, page_count)
+                _check_cancelled(cancelled)
                 output.save(
                     destination,
                     compress_streams=True,
@@ -513,6 +682,29 @@ class CompressionService:
                 )
             finally:
                 output.close()
+
+
+def _check_cancelled(cancelled: CancelCheck | None) -> None:
+    if cancelled is not None and cancelled():
+        raise CompressionCancelledError("Compression annulée")
+
+
+def _emit_progress(
+    callback: ProgressCallback | None,
+    percent: int,
+    stage: CompressionStage,
+    current: int = 0,
+    total: int = 0,
+) -> None:
+    if callback is not None:
+        callback(
+            CompressionProgress(
+                percent=max(0, min(100, percent)),
+                stage=stage,
+                current=current,
+                total=total,
+            )
+        )
 
 
 def _copy_candidate(source: Path, destination: Path) -> _Candidate:
@@ -558,10 +750,22 @@ def _write_vector_preserving_candidate(
     source: Path,
     destination: Path,
     settings: _ImageSettings | None,
+    *,
+    cancelled: CancelCheck | None,
+    page_progress: PageProgressCallback | None,
 ) -> None:
+    _check_cancelled(cancelled)
     with pikepdf.open(source) as pdf:
         if settings is not None:
-            _recompress_document_images(pdf, settings)
+            _recompress_document_images(
+                pdf,
+                settings,
+                cancelled=cancelled,
+                page_progress=page_progress,
+            )
+        elif page_progress is not None:
+            page_progress(1, 1)
+        _check_cancelled(cancelled)
         pdf.remove_unreferenced_resources()
         pdf.save(
             destination,
@@ -571,14 +775,30 @@ def _write_vector_preserving_candidate(
         )
 
 
-def _recompress_document_images(pdf: pikepdf.Pdf, settings: _ImageSettings) -> None:
+def _recompress_document_images(
+    pdf: pikepdf.Pdf,
+    settings: _ImageSettings,
+    *,
+    cancelled: CancelCheck | None,
+    page_progress: PageProgressCallback | None,
+) -> None:
     visited: set[tuple[int, int] | tuple[str, int]] = set()
-    for page in pdf.pages:
+    page_count = len(pdf.pages)
+    for page_index, page in enumerate(pdf.pages):
+        _check_cancelled(cancelled)
         media_box = [float(value) for value in page.mediabox]
         page_size = (abs(media_box[2] - media_box[0]), abs(media_box[3] - media_box[1]))
         resources = page.obj.get("/Resources")
         if resources is not None:
-            _recompress_resources(resources, page_size, settings, visited)
+            _recompress_resources(
+                resources,
+                page_size,
+                settings,
+                visited,
+                cancelled=cancelled,
+            )
+        if page_progress is not None:
+            page_progress(page_index + 1, page_count)
 
 
 def _recompress_resources(
@@ -586,11 +806,14 @@ def _recompress_resources(
     page_size: tuple[float, float],
     settings: _ImageSettings,
     visited: set[tuple[int, int] | tuple[str, int]],
+    *,
+    cancelled: CancelCheck | None,
 ) -> None:
     xobjects = resources.get("/XObject")
     if xobjects is None:
         return
     for name in list(xobjects.keys()):
+        _check_cancelled(cancelled)
         image_object = xobjects[name]
         key: tuple[int, int] | tuple[str, int]
         object_generation = image_object.objgen
@@ -604,7 +827,13 @@ def _recompress_resources(
         elif subtype == pikepdf.Name.Form:
             child_resources = image_object.get("/Resources")
             if child_resources is not None:
-                _recompress_resources(child_resources, page_size, settings, visited)
+                _recompress_resources(
+                    child_resources,
+                    page_size,
+                    settings,
+                    visited,
+                    cancelled=cancelled,
+                )
 
 
 def _recompress_image(
