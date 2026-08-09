@@ -4,6 +4,11 @@ Files:
 - `pixopdf-logo-light.svg`: transparent/light-background wordmark.
 - `pixopdf-logo-dark.svg`: dark-surface wordmark.
 - `pixopdf-brand-board.svg`: both variants and the complete palette.
+- `PixoPDF.png`, `PixoPDF.ico`, `PixoPDF.icns`: generated native application icons.
+- `dmg/pixopdf-dmg-background.png`: generated macOS installer background.
+
+Regenerate packaging assets with
+`poetry run python packaging/create_packaging_art.py`.
 
 Palette:
 - Navy: `#172B4D`

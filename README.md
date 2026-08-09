@@ -65,9 +65,19 @@ poetry run pixopdf
 ```
 
 Run all checks with `make check`. Build the Python package and a platform-native
-application with `make build`. Windows and Linux receive an executable; macOS
-receives a signed-ready `PixoPDF.app` bundle with the correct application menu.
-The builds are produced separately.
+application with `make build`, then create the two distribution choices for the
+current OS with `make package`. `make release-current` runs validation, build and
+packaging together. Builds remain native and are produced separately on each OS.
+
+Every release provides a portable download and a native installer:
+
+- macOS Apple Silicon and Intel: portable `.zip` plus drag-to-Applications `.dmg`;
+- Windows x64: portable `.zip` plus an Inno Setup `.exe` installer;
+- Linux x86_64: portable `.tar.gz` plus a Debian/Ubuntu `.deb` package.
+
+The GitHub release also contains `SHA256SUMS.txt`. Current CI builds are ad-hoc
+signed on macOS and unsigned on Windows; users may therefore see the normal OS
+security warning until production signing and Apple notarization are configured.
 
 Application preferences are available with `Ctrl+,` on every platform
 (`⌘,` on macOS). They appear under **PixoPDF > Settings…** on macOS and
