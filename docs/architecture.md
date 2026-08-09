@@ -22,6 +22,16 @@ Export resolves references at the last moment, opens each source once, closes al
 PDF handles, then atomically replaces the destination with a unique temporary file.
 Every source document remains untouched.
 
+Advanced file-producing operations follow the same rule. `LayoutService`,
+`ConversionService`, `ProtectionService`, `SignatureService` and
+`CompressionService` consume an immutable materialized project snapshot and
+publish through sibling temporary files or staged directories. A digital
+signature is always the final byte-level operation. Target-size compression
+tests bounded vector-preserving candidates first, retains only the smallest
+temporary candidate, and only allows the disclosed page-raster fallback after
+explicit opt-in. The UI provides an indicative live estimate; the exact size is
+reported from the generated file.
+
 Split planning converts each chosen strategy into zero-based groups over active
 pages. Every group is exported to a temporary directory first; completed outputs
 are moved into the selected destination only after every PDF has been generated.

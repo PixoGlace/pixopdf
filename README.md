@@ -34,8 +34,17 @@ PixoPDF is a free, cross-platform PDF toolbox by [PixoGlace](https://github.com/
   from Settings when desired
 - Access the PixoGlace Ko-fi sponsorship link from the permanent status bar
 - Drop PDF files directly from the file manager
+- Resize pages to A3, A4, A5 or Letter and create 2/4/6/9-up print sheets
+- Convert PDF pages to PNG/JPEG, assemble images into PDF and extract embedded images
+- Encrypt PDFs with an opening password, configure permissions and create an
+  authorized unlocked copy
+- Add visual signatures and date stamps to selected pages, or apply a verifiable
+  PKCS#12 digital signature with pyHanko
+- Compress with light, balanced or maximum profiles, or use Advanced mode to
+  choose a DPI, a target size, or both, with an instant pre-export size estimate
 
-Advanced layout, annotations, conversion, security, compression, OCR and batch processing are on the roadmap. Unavailable tools are explicitly marked “Bientôt”.
+OCR, advanced annotations and queued batch recipes remain on the roadmap. Every
+tool currently shown in the permanent operation bar is functional.
 
 Automatic update checks contact only the public GitHub releases API. No PDF,
 file path or document metadata is included in that request.
@@ -88,4 +97,4 @@ Pages source must be set to
 
 ## License
 
-Copyright © 2026 PixoGlace. PixoPDF is licensed under the **GNU General Public License v3.0 only** (`GPL-3.0-only`), not MIT. See `LICENSE`. Dependencies retain their respective licenses; notably Qt/PySide6 (LGPL/GPL/commercial), pikepdf (MPL-2.0), pypdfium2 (Apache-2.0/BSD-3-Clause and PDFium notices), and Pillow (HPND). Optional pyHanko, OCRmyPDF and Tesseract components retain their own licenses.
+Copyright © 2026 PixoGlace. PixoPDF is licensed under the **GNU General Public License v3.0 only** (`GPL-3.0-only`), not MIT. See `LICENSE`. Dependencies retain their respective licenses; notably Qt/PySide6 (LGPL/GPL/commercial), pikepdf (MPL-2.0), pypdfium2 (Apache-2.0/BSD-3-Clause and PDFium notices), Pillow (HPND) and pyHanko. Optional OCRmyPDF and Tesseract components retain their own licenses.
