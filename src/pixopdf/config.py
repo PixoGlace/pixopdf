@@ -5,7 +5,7 @@ code and dialogs cannot silently drift apart.
 """
 
 APP_NAME = "PixoPDF"
-VERSION = "0.1.3"
+VERSION = "0.2.0"
 
 ORGANIZATION = "PixoGlace"
 PROJECT_LICENSE = "GNU GPL v3"

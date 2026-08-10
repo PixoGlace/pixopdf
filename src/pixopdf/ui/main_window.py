@@ -1,10 +1,17 @@
+import os
 import sys
+import tempfile
 import time
+from collections import OrderedDict
 from collections.abc import Callable
+from dataclasses import dataclass, replace
+from datetime import datetime
+from functools import partial
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
+import pikepdf
 from PySide6.QtCore import QSettings, QSize, Qt, QThreadPool, QUrl
 from PySide6.QtGui import (
     QAction,
@@ -48,15 +55,57 @@ from pixopdf.domain.document import SourceDocument
 from pixopdf.domain.project import PdfProject
 from pixopdf.language_config import DEFAULT_LANGUAGE, LANGUAGES, is_rtl, translate
 from pixopdf.pdf.pdfium_renderer import PdfiumRenderer
+from pixopdf.services.compression_service import (
+    CompressionOptions,
+    CompressionProfile,
+    CompressionProgress,
+    CompressionResult,
+    CompressionService,
+    CompressionStage,
+)
+from pixopdf.services.conversion_service import (
+    ConversionService,
+    ExtractImagesOptions,
+    ImagesToPdfOptions,
+    PdfToImagesOptions,
+    RasterImageFormat,
+)
+from pixopdf.services.layout_service import (
+    LayoutService,
+    NUpOptions,
+    PageFormat,
+    PageOrientation,
+    TargetFormatOptions,
+)
 from pixopdf.services.project_service import ProjectService
+from pixopdf.services.protection_service import (
+    ProtectionOptions,
+    ProtectionPermissions,
+    ProtectionService,
+    RemoveProtectionOptions,
+)
+from pixopdf.services.signature_service import (
+    DateStampOptions,
+    DigitalSignatureOptions,
+    PdfRectangle,
+    SignatureService,
+    VisualSignatureOptions,
+)
 from pixopdf.services.split_service import SplitStrategy, build_split_groups
 from pixopdf.services.update_service import UpdateResult, UpdateService, UpdateStatus
 
 from .dialogs import AboutDialog, QuickHelpDialog, SettingsDialog
 from .themes.theme_manager import Theme, apply_theme
 from .tool_modes import MODE_SPECS, WorkspaceMode, coerce_mode
-from .workspace.operation_worker import OperationTask
+from .workspace.operation_worker import OperationContext, OperationTask
 from .workspace.workspace_page import WorkspacePage
+
+
+@dataclass(frozen=True, slots=True)
+class _CompressionPreviewEntry:
+    key: tuple[object, ...]
+    path: Path
+    result: CompressionResult
 
 
 class MainWindow(QMainWindow):
@@ -69,6 +118,11 @@ class MainWindow(QMainWindow):
     ) -> None:
         super().__init__()
         self.service = service
+        self.layout_service = LayoutService()
+        self.conversion_service = ConversionService()
+        self.protection_service = ProtectionService()
+        self.signature_service = SignatureService()
+        self.compression_service = CompressionService()
         self.update_service = update_service or UpdateService()
         self._is_macos = sys.platform == "darwin"
         self.project = PdfProject()
@@ -78,6 +132,17 @@ class MainWindow(QMainWindow):
         self.language = self._saved_language()
         self.active_mode = self._saved_mode()
         self._active_task: OperationTask | None = None
+        self._compression_preview_task: OperationTask | None = None
+        self._compression_preview_generation = 0
+        self._compression_preview_pool = QThreadPool(self)
+        self._compression_preview_pool.setMaxThreadCount(1)
+        self._compression_preview_directory = tempfile.TemporaryDirectory(
+            prefix=".pixopdf-preview-"
+        )
+        self._compression_preview_root = Path(self._compression_preview_directory.name)
+        self._compression_preview_cache: OrderedDict[
+            tuple[object, ...], _CompressionPreviewEntry
+        ] = OrderedDict()
         self._update_task: OperationTask | None = None
         self._update_manual = False
         self._closing = False
@@ -198,9 +263,16 @@ class MainWindow(QMainWindow):
         self.workspace.rotate_requested.connect(self.rotate_pages)
         self.workspace.reorder_requested.connect(self.reorder_pages)
         self.workspace.blank_page_requested.connect(self.insert_blank_page)
+        self.workspace.image_files_requested.connect(self.choose_conversion_images)
+        self.workspace.signature_image_requested.connect(self.choose_signature_image)
+        self.workspace.certificate_file_requested.connect(self.choose_certificate_file)
+        self.workspace.protected_pdf_requested.connect(self.choose_protected_pdf)
         self.workspace.undo_requested.connect(self.undo)
         self.workspace.redo_requested.connect(self.redo)
         self.workspace.mode_requested.connect(self.activate_mode)
+        self.workspace.compression_preview_requested.connect(self.request_compression_preview)
+        self.workspace.compression_preview_cancel_requested.connect(self.cancel_compression_preview)
+        self.workspace.operation_cancel_requested.connect(self.cancel_active_operation)
         self.workspace.pages.itemSelectionChanged.connect(self._sync_menu_action_state)
         self.workspace.primary_action_changed.connect(self._sync_primary_menu_action)
         self.commands.subscribe(self.refresh)
@@ -216,6 +288,11 @@ class MainWindow(QMainWindow):
             self.tool_mode_actions[selected].setChecked(True)
             self._translate_menus()
             self._sync_menu_action_state()
+
+    def activate_mode_from_menu(self, mode: WorkspaceMode | str) -> None:
+        """Open a tool workspace when selected from the native application menu."""
+        self.activate_mode(mode)
+        self.workspace.show_workspace()
 
     def show_settings_dialog(self) -> None:
         dialog = SettingsDialog(
@@ -577,7 +654,7 @@ class MainWindow(QMainWindow):
                 else self.t("feature_unavailable", feature=action.text())
             )
             action.triggered.connect(
-                lambda _checked=False, selected=mode: self.activate_mode(selected)
+                lambda _checked=False, selected=mode: self.activate_mode_from_menu(selected)
             )
             self.tool_mode_group.addAction(action)
             self.tool_mode_actions[mode] = action
@@ -714,6 +791,60 @@ class MainWindow(QMainWindow):
         )
         if names:
             self.import_paths(names)
+
+    def choose_conversion_images(self) -> None:
+        if self._active_task is not None:
+            return
+        names, _ = QFileDialog.getOpenFileNames(
+            self,
+            self.t("choose_conversion_images_dialog"),
+            str(self.settings.value("files/last_directory", "")),
+            "Images (*.png *.jpg *.jpeg *.webp *.tif *.tiff *.bmp)",
+        )
+        if not names:
+            return
+        self.settings.setValue("files/last_directory", str(Path(names[0]).parent))
+        self.workspace.set_conversion_images(names)
+        self.workspace.show_workspace()
+
+    def choose_signature_image(self) -> None:
+        if self._active_task is not None:
+            return
+        name, _ = QFileDialog.getOpenFileName(
+            self,
+            self.t("choose_signature_image_dialog"),
+            str(self.settings.value("files/last_directory", "")),
+            "Images (*.png *.jpg *.jpeg *.webp)",
+        )
+        if name:
+            self.settings.setValue("files/last_directory", str(Path(name).parent))
+            self.workspace.set_signature_image(name)
+
+    def choose_certificate_file(self) -> None:
+        if self._active_task is not None:
+            return
+        name, _ = QFileDialog.getOpenFileName(
+            self,
+            self.t("choose_certificate_dialog"),
+            str(self.settings.value("files/last_directory", "")),
+            "Certificats PKCS#12 (*.p12 *.pfx)",
+        )
+        if name:
+            self.settings.setValue("files/last_directory", str(Path(name).parent))
+            self.workspace.set_certificate_file(name)
+
+    def choose_protected_pdf(self) -> None:
+        if self._active_task is not None:
+            return
+        name, _ = QFileDialog.getOpenFileName(
+            self,
+            self.t("choose_protected_pdf_dialog"),
+            str(self.settings.value("files/last_directory", "")),
+            SUPPORTED_PDF_FILTER,
+        )
+        if name:
+            self.settings.setValue("files/last_directory", str(Path(name).parent))
+            self.workspace.set_protected_pdf(name)
 
     def import_paths(self, names: list[str]) -> None:
         paths = [Path(name) for name in names if name.lower().endswith(".pdf")]
@@ -937,7 +1068,754 @@ class MainWindow(QMainWindow):
         if self.active_mode is WorkspaceMode.SPLIT:
             self.workspace.request_split()
             return
+        if self.active_mode is WorkspaceMode.LAYOUT:
+            self.execute_layout_operation()
+            return
+        if self.active_mode is WorkspaceMode.CONVERT:
+            self.execute_conversion_operation()
+            return
+        if self.active_mode is WorkspaceMode.PROTECT:
+            self.execute_protection_operation()
+            return
+        if self.active_mode is WorkspaceMode.SIGN:
+            self.execute_signature_operation()
+            return
+        if self.active_mode is WorkspaceMode.COMPRESS:
+            self.execute_compression_operation()
+            return
         self.export()
+
+    def _project_snapshot(self) -> PdfProject:
+        return PdfProject(
+            documents=dict(self.project.documents),
+            pages=list(self.project.active_pages),
+            modified=False,
+        )
+
+    def _default_output_stem(self) -> str:
+        if len(self.project.documents) == 1:
+            return next(iter(self.project.documents.values())).path.stem
+        return "projet-pixopdf"
+
+    def _default_output_name(self, suffix: str) -> str:
+        return f"{self._default_output_stem()}-{suffix}.pdf"
+
+    def _choose_pdf_destination(self, title: str, default_name: str) -> Path | None:
+        name, _ = QFileDialog.getSaveFileName(
+            self,
+            title,
+            str(Path(str(self.settings.value("files/last_directory", ""))) / default_name),
+            SUPPORTED_PDF_FILTER,
+        )
+        if not name:
+            return None
+        destination = Path(name)
+        if destination.suffix.lower() != ".pdf":
+            destination = destination.with_suffix(".pdf")
+        source_paths = {document.path.resolve() for document in self.project.documents.values()}
+        if destination.resolve() in source_paths:
+            QMessageBox.warning(
+                self,
+                self.t("invalid_destination_title"),
+                self.t("invalid_destination_message"),
+            )
+            return None
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        self.settings.setValue("files/last_directory", str(destination.parent))
+        return destination
+
+    def _choose_output_directory(self, title: str) -> Path | None:
+        directory = QFileDialog.getExistingDirectory(
+            self,
+            title,
+            str(self.settings.value("files/last_directory", "")),
+        )
+        if not directory:
+            return None
+        destination = Path(directory)
+        self.settings.setValue("files/last_directory", str(destination))
+        return destination
+
+    def _run_on_materialized_project(
+        self,
+        destination: Path,
+        operation: Callable[[Path], object],
+    ) -> object:
+        snapshot = self._project_snapshot()
+        with tempfile.TemporaryDirectory(
+            prefix=".pixopdf-operation-",
+            dir=destination.parent,
+        ) as temporary_directory:
+            source = Path(temporary_directory) / f"{self._default_output_stem()}.pdf"
+            self.service.export(snapshot, source)
+            return operation(source)
+
+    @staticmethod
+    def _page_format_and_orientation(
+        size: tuple[float, float],
+    ) -> tuple[PageFormat, PageOrientation]:
+        portrait = min(size), max(size)
+        formats = {
+            (round(595.28, 1), round(841.89, 1)): PageFormat.A4,
+            (round(419.53, 1), round(595.28, 1)): PageFormat.A5,
+            (round(612.0, 1), round(792.0, 1)): PageFormat.LETTER,
+            (round(841.89, 1), round(1190.55, 1)): PageFormat.A3,
+        }
+        key = round(portrait[0], 1), round(portrait[1], 1)
+        return formats.get(key, PageFormat.A4), (
+            PageOrientation.LANDSCAPE if size[0] > size[1] else PageOrientation.PORTRAIT
+        )
+
+    def execute_layout_operation(self) -> None:
+        if self._active_task is not None or not self.project.active_page_count:
+            return
+        settings = self.workspace.operation_options()
+        action = str(settings["action"])
+        destination = self._choose_pdf_destination(
+            self.t("layout_save_dialog"),
+            self._default_output_name("mise-en-page"),
+        )
+        if destination is None:
+            return
+        page_size = cast(tuple[float, float], settings["page_size"])
+        page_format, orientation = self._page_format_and_orientation(page_size)
+        transform: Callable[[Path], object]
+        if action == "nup":
+            count = cast(int, settings["pages_per_sheet"])
+            rows, columns = {2: (1, 2), 4: (2, 2), 6: (2, 3), 9: (3, 3)}[count]
+            margin = cast(int, settings["margin_mm"]) * 72.0 / 25.4
+            nup_options = NUpOptions(
+                rows=rows,
+                columns=columns,
+                page_format=page_format,
+                orientation=orientation,
+                margin_points=margin,
+                gutter_points=max(0.0, margin / 2),
+            )
+            transform = partial(
+                self.layout_service.n_up,
+                destination=destination,
+                options=nup_options,
+            )
+        else:
+            format_options = TargetFormatOptions(
+                page_format=page_format,
+                orientation=orientation,
+                allow_upscale=str(settings["fit_mode"]) != "actual",
+            )
+            transform = partial(
+                self.layout_service.apply_target_format,
+                destination=destination,
+                options=format_options,
+            )
+        self.workspace.show_message(self.t("layout_in_progress"))
+        self._start_operation(
+            lambda: self._run_on_materialized_project(destination, transform),
+            self._finish_tool_operation,
+            self.t("layout_error_title"),
+        )
+
+    def execute_conversion_operation(self) -> None:
+        if self._active_task is not None:
+            return
+        settings = self.workspace.operation_options()
+        action = str(settings["action"])
+        operation: Callable[[], object]
+        if action == "images_to_pdf":
+            image_paths = cast(tuple[str, ...], settings["image_paths"])
+            sources = [Path(path) for path in image_paths]
+            if not sources:
+                self.choose_conversion_images()
+                return
+            destination = self._choose_pdf_destination(
+                self.t("images_pdf_save_dialog"),
+                "images-pixopdf.pdf",
+            )
+            if destination is None:
+                return
+            image_options = ImagesToPdfOptions(
+                dpi=float(cast(int, settings["dpi"])),
+                jpeg_quality=cast(int, settings["quality"]),
+            )
+            operation = partial(
+                self.conversion_service.images_to_pdf,
+                sources,
+                destination,
+                image_options,
+            )
+        else:
+            if not self.project.active_page_count:
+                return
+            destination = self._choose_output_directory(self.t("images_output_folder_dialog"))
+            if destination is None:
+                return
+            transform: Callable[[Path], object]
+            if action == "pdf_to_images":
+                image_format = RasterImageFormat(str(settings["format"]))
+                render_options = PdfToImagesOptions(
+                    image_format=image_format,
+                    dpi=cast(int, settings["dpi"]),
+                    jpeg_quality=cast(int, settings["quality"]),
+                )
+                transform = partial(
+                    self.conversion_service.pdf_to_images,
+                    destination=destination,
+                    options=render_options,
+                )
+            else:
+                transform = partial(
+                    self.conversion_service.extract_images,
+                    destination=destination,
+                    options=ExtractImagesOptions(),
+                )
+            operation = partial(self._run_on_materialized_project, destination, transform)
+        self.workspace.show_message(self.t("conversion_in_progress"))
+        self._start_operation(
+            operation,
+            self._finish_tool_operation,
+            self.t("conversion_error_title"),
+        )
+
+    def execute_protection_operation(self) -> None:
+        if self._active_task is not None:
+            return
+        settings = self.workspace.operation_options()
+        action = str(settings["action"])
+        operation: Callable[[], object]
+        destination = self._choose_pdf_destination(
+            self.t("protect_save_dialog"),
+            self._default_output_name("deverrouille" if action == "remove_password" else "protege"),
+        )
+        if destination is None:
+            return
+        if action == "remove_password":
+            explicit_source = str(settings["protected_path"])
+            password = str(settings["current_password"])
+            if explicit_source:
+                operation = partial(
+                    self.protection_service.remove_protection,
+                    Path(explicit_source),
+                    destination,
+                    RemoveProtectionOptions(password),
+                )
+            elif self.project.active_page_count:
+                transform: Callable[[Path], object]
+                transform = partial(
+                    self.protection_service.remove_protection,
+                    destination=destination,
+                    options=RemoveProtectionOptions(password),
+                )
+                operation = partial(self._run_on_materialized_project, destination, transform)
+            else:
+                return
+        else:
+            if not self.project.active_page_count:
+                return
+            if action == "password":
+                user_password = str(settings["user_password"])
+                owner_password = user_password
+                permissions = ProtectionPermissions(
+                    accessibility=True,
+                    extract=True,
+                    modify_annotation=True,
+                    modify_assembly=True,
+                    modify_form=True,
+                    modify_other=True,
+                    print_lowres=True,
+                    print_highres=True,
+                )
+            else:
+                user_password = ""
+                owner_password = str(settings["owner_password"])
+                allow_modify = bool(settings["allow_modify"])
+                allow_print = bool(settings["allow_print"])
+                permissions = ProtectionPermissions(
+                    accessibility=True,
+                    extract=bool(settings["allow_copy"]),
+                    modify_annotation=allow_modify,
+                    modify_assembly=allow_modify,
+                    modify_form=allow_modify,
+                    modify_other=allow_modify,
+                    print_lowres=allow_print,
+                    print_highres=allow_print,
+                )
+            options = ProtectionOptions(
+                owner_password=owner_password,
+                user_password=user_password,
+                permissions=permissions,
+            )
+            transform = partial(
+                self.protection_service.protect,
+                destination=destination,
+                options=options,
+            )
+            operation = partial(self._run_on_materialized_project, destination, transform)
+        self.workspace.show_message(self.t("protection_in_progress"))
+        self._start_operation(
+            operation,
+            self._finish_tool_operation,
+            self.t("protection_error_title"),
+        )
+
+    def _selected_active_output_indices(self) -> list[int]:
+        selected_ids = self.workspace.selected_page_ids()
+        indices = [
+            index
+            for index, page in enumerate(self.project.active_pages)
+            if str(page.id) in selected_ids
+        ]
+        return indices or [max(0, self.project.active_page_count - 1)]
+
+    @staticmethod
+    def _overlay_rectangle(
+        position: str,
+        *,
+        width: float,
+        height: float,
+        page_width: float = 595.28,
+        page_height: float = 841.89,
+    ) -> PdfRectangle:
+        horizontal_margin = min(28.0, max(0.0, page_width * 0.08))
+        vertical_margin = min(28.0, max(0.0, page_height * 0.08))
+        width = min(width, max(1.0, page_width - (2 * horizontal_margin)))
+        height = min(height, max(1.0, page_height - (2 * vertical_margin)))
+        x = (
+            horizontal_margin
+            if position.endswith("left")
+            else (page_width - width) / 2
+            if position == "center"
+            else page_width - width - horizontal_margin
+        )
+        y = (
+            page_height - height - vertical_margin
+            if position.startswith("top")
+            else vertical_margin
+        )
+        return PdfRectangle(max(0.0, x), max(0.0, y), width, height)
+
+    @staticmethod
+    def _materialized_page_sizes(
+        source: Path,
+        indices: list[int],
+    ) -> dict[int, tuple[float, float]]:
+        with pikepdf.open(source) as pdf:
+            sizes: dict[int, tuple[float, float]] = {}
+            for index in indices:
+                media_box = [float(value) for value in pdf.pages[index].mediabox]
+                sizes[index] = (
+                    abs(media_box[2] - media_box[0]),
+                    abs(media_box[3] - media_box[1]),
+                )
+            return sizes
+
+    def execute_signature_operation(self) -> None:
+        if self._active_task is not None or not self.project.active_page_count:
+            return
+        settings = self.workspace.operation_options()
+        action = str(settings["action"])
+        destination = self._choose_pdf_destination(
+            self.t("sign_save_dialog"),
+            self._default_output_name("signe"),
+        )
+        if destination is None:
+            return
+        indices = self._selected_active_output_indices()
+        position = str(settings["position"])
+        transform: Callable[[Path], object]
+        if action == "visual":
+            image_path = Path(str(settings["image_path"]))
+
+            def transform(source: Path) -> object:
+                page_sizes = self._materialized_page_sizes(source, indices)
+                overlays = [
+                    VisualSignatureOptions(
+                        page_index=index,
+                        rectangle=self._overlay_rectangle(
+                            position,
+                            width=180.0,
+                            height=70.0,
+                            page_width=page_sizes[index][0],
+                            page_height=page_sizes[index][1],
+                        ),
+                        image_path=image_path,
+                    )
+                    for index in indices
+                ]
+                return self.signature_service.add_visual_signatures(
+                    source,
+                    destination,
+                    overlays,
+                )
+
+        elif action == "date":
+            value = datetime.now()
+            date_format = "%Y-%m-%d %H:%M" if settings["include_time"] else "%Y-%m-%d"
+            prefix = self.t("signed_on_prefix")
+
+            def transform(source: Path) -> object:
+                page_sizes = self._materialized_page_sizes(source, indices)
+                stamps = [
+                    DateStampOptions(
+                        page_index=index,
+                        rectangle=self._overlay_rectangle(
+                            position,
+                            width=170.0,
+                            height=32.0,
+                            page_width=page_sizes[index][0],
+                            page_height=page_sizes[index][1],
+                        ),
+                        value=value,
+                        date_format=date_format,
+                        prefix=prefix,
+                    )
+                    for index in indices
+                ]
+                return self.signature_service.add_date_stamps(
+                    source,
+                    destination,
+                    stamps,
+                )
+
+        else:
+            passphrase = str(settings["certificate_password"]).encode() or None
+            options = DigitalSignatureOptions(
+                pkcs12_path=Path(str(settings["certificate_path"])),
+                passphrase=passphrase,
+            )
+            transform = partial(
+                self.signature_service.sign_digitally,
+                destination=destination,
+                options=options,
+            )
+        self.workspace.show_message(self.t("signature_in_progress"))
+        self._start_operation(
+            lambda: self._run_on_materialized_project(destination, transform),
+            self._finish_tool_operation,
+            self.t("signature_error_title"),
+        )
+
+    def execute_compression_operation(self) -> None:
+        if self._active_task is not None or not self.project.active_page_count:
+            return
+        settings = self.workspace.operation_options()
+        options = self._compression_options_from_settings(settings)
+        destination = self._choose_pdf_destination(
+            self.t("compress_save_dialog"),
+            self._default_output_name("compresse"),
+        )
+        if destination is None:
+            return
+        cache_key = self._compression_preview_key(options)
+        cached = self._compression_preview_cache.get(cache_key)
+        self.cancel_compression_preview(show_feedback=False)
+
+        def compress(context: OperationContext) -> CompressionResult:
+            if cached is not None and cached.path.is_file():
+                return self._publish_cached_compression(cached, destination, context)
+            snapshot = self._project_snapshot()
+            with tempfile.TemporaryDirectory(
+                prefix=".pixopdf-operation-",
+                dir=destination.parent,
+            ) as temporary_directory:
+                source = Path(temporary_directory) / f"{self._default_output_stem()}.pdf"
+                self.service.export(snapshot, source)
+                return self.compression_service.compress(
+                    source,
+                    destination,
+                    options,
+                    progress=context.report,
+                    cancelled=context.is_cancelled,
+                )
+
+        self.workspace.show_message(self.t("compression_in_progress"))
+        self._start_operation(
+            compress,
+            self._finish_tool_operation,
+            self.t("compression_error_title"),
+            contextual=True,
+            on_progress=self._show_compression_operation_progress,
+        )
+
+    @staticmethod
+    def _compression_options_from_settings(
+        settings: dict[str, object],
+    ) -> CompressionOptions:
+        action = str(settings["action"])
+        if action == "advanced":
+            return CompressionOptions.for_advanced(
+                dpi=cast(int | None, settings["dpi"]),
+                target_size_bytes=cast(int | None, settings["target_bytes"]),
+                allow_raster_fallback=bool(settings["allow_aggressive"]),
+            )
+        return CompressionOptions.for_profile(CompressionProfile(action))
+
+    def _compression_preview_key(
+        self,
+        options: CompressionOptions,
+    ) -> tuple[object, ...]:
+        documents: list[tuple[object, ...]] = []
+        for document_id, document in sorted(
+            self.project.documents.items(), key=lambda item: str(item[0])
+        ):
+            try:
+                stat = document.path.stat()
+                identity = (stat.st_size, stat.st_mtime_ns)
+            except OSError:
+                identity = (-1, -1)
+            documents.append((str(document_id), str(document.path), *identity))
+        pages = tuple(
+            (
+                str(page.id),
+                str(page.source_document_id) if page.source_document_id else None,
+                page.source_page_index,
+                page.rotation,
+                page.crop_box,
+                page.blank_size,
+            )
+            for page in self.project.active_pages
+        )
+        return (tuple(documents), pages, options)
+
+    def request_compression_preview(self, raw_settings: object) -> None:
+        if self._active_task is not None or not isinstance(raw_settings, dict):
+            return
+        try:
+            options = self._compression_options_from_settings(raw_settings)
+        except (KeyError, TypeError, ValueError) as exc:
+            self.workspace.set_compression_preview_error(str(exc))
+            return
+        self.cancel_compression_preview(show_feedback=False)
+        key = self._compression_preview_key(options)
+        cached = self._compression_preview_cache.get(key)
+        if cached is not None and cached.path.is_file():
+            self._compression_preview_cache.move_to_end(key)
+            self.workspace.set_compression_preview_result(
+                cached.result.original_size,
+                cached.result.compressed_size,
+                cached=True,
+            )
+            return
+
+        self._compression_preview_generation += 1
+        generation = self._compression_preview_generation
+        snapshot = self._project_snapshot()
+        source = self._compression_preview_root / f"{generation}-source.pdf"
+        destination = self._compression_preview_root / f"{generation}-compressed.pdf"
+
+        def preview(context: OperationContext) -> CompressionResult:
+            try:
+                self.service.export(snapshot, source)
+                return self.compression_service.compress(
+                    source,
+                    destination,
+                    options,
+                    progress=context.report,
+                    cancelled=context.is_cancelled,
+                )
+            finally:
+                source.unlink(missing_ok=True)
+
+        task = OperationTask(preview, contextual=True)
+        self._compression_preview_task = task
+        task.signals.progress.connect(
+            lambda value: self._compression_preview_progress(task, generation, value)
+        )
+        task.signals.succeeded.connect(
+            lambda result: self._compression_preview_succeeded(
+                task, generation, key, destination, result
+            )
+        )
+        task.signals.failed.connect(
+            lambda message: self._compression_preview_failed(task, generation, destination, message)
+        )
+        task.signals.cancelled.connect(
+            lambda: self._compression_preview_cancelled(task, generation, destination)
+        )
+        self.workspace.set_compression_preview_progress(0, self.t("compression_stage_preparing"))
+        self._compression_preview_pool.start(task)
+
+    def cancel_compression_preview(self, *, show_feedback: bool = True) -> None:
+        task = self._compression_preview_task
+        if task is None:
+            return
+        self._compression_preview_generation += 1
+        self._compression_preview_task = None
+        task.cancel()
+        if show_feedback:
+            self.workspace.set_compression_preview_cancelled()
+
+    def _compression_preview_progress(
+        self,
+        task: OperationTask,
+        generation: int,
+        value: object,
+    ) -> None:
+        if task is not self._compression_preview_task:
+            return
+        if generation != self._compression_preview_generation:
+            return
+        if isinstance(value, CompressionProgress):
+            self.workspace.set_compression_preview_progress(
+                value.percent, self._compression_progress_text(value)
+            )
+
+    def _compression_preview_succeeded(
+        self,
+        task: OperationTask,
+        generation: int,
+        key: tuple[object, ...],
+        destination: Path,
+        result: object,
+    ) -> None:
+        if task is not self._compression_preview_task:
+            destination.unlink(missing_ok=True)
+            return
+        if generation != self._compression_preview_generation:
+            destination.unlink(missing_ok=True)
+            return
+        self._compression_preview_task = None
+        if not isinstance(result, CompressionResult):
+            destination.unlink(missing_ok=True)
+            self.workspace.set_compression_preview_error(self.t("unexpected_operation_result"))
+            return
+        entry = _CompressionPreviewEntry(key, destination, result)
+        self._compression_preview_cache[key] = entry
+        self._compression_preview_cache.move_to_end(key)
+        while len(self._compression_preview_cache) > 4:
+            _, stale = self._compression_preview_cache.popitem(last=False)
+            stale.path.unlink(missing_ok=True)
+        self.workspace.set_compression_preview_result(
+            result.original_size,
+            result.compressed_size,
+            cached=False,
+        )
+
+    def _compression_preview_failed(
+        self,
+        task: OperationTask,
+        generation: int,
+        destination: Path,
+        message: str,
+    ) -> None:
+        destination.unlink(missing_ok=True)
+        if task is not self._compression_preview_task:
+            return
+        if generation != self._compression_preview_generation:
+            return
+        self._compression_preview_task = None
+        self.workspace.set_compression_preview_error(
+            self.t("compression_preview_error", message=message)
+        )
+
+    def _compression_preview_cancelled(
+        self,
+        task: OperationTask,
+        generation: int,
+        destination: Path,
+    ) -> None:
+        destination.unlink(missing_ok=True)
+        if task is not self._compression_preview_task:
+            return
+        if generation != self._compression_preview_generation:
+            return
+        self._compression_preview_task = None
+        self.workspace.set_compression_preview_cancelled()
+
+    def _compression_progress_text(self, progress: CompressionProgress) -> str:
+        key = f"compression_stage_{progress.stage.value}"
+        if progress.stage in {
+            CompressionStage.OPTIMIZING,
+            CompressionStage.TESTING,
+            CompressionStage.RASTERIZING,
+        }:
+            return self.t(
+                key,
+                current=max(1, progress.current),
+                total=max(1, progress.total),
+            )
+        return self.t(key)
+
+    def _show_compression_operation_progress(self, value: object) -> None:
+        if isinstance(value, CompressionProgress):
+            self.workspace.set_operation_progress(
+                value.percent,
+                self._compression_progress_text(value),
+            )
+
+    @staticmethod
+    def _publish_cached_compression(
+        entry: _CompressionPreviewEntry,
+        destination: Path,
+        context: OperationContext,
+    ) -> CompressionResult:
+        file_descriptor, temporary_name = tempfile.mkstemp(
+            prefix=f".{destination.name}.",
+            suffix=".tmp",
+            dir=destination.parent,
+        )
+        os.close(file_descriptor)
+        temporary = Path(temporary_name)
+        copied = 0
+        total = max(1, entry.path.stat().st_size)
+        try:
+            with entry.path.open("rb") as source_stream, temporary.open("wb") as output_stream:
+                while chunk := source_stream.read(1024 * 1024):
+                    if context.is_cancelled():
+                        raise RuntimeError("Compression annulée")
+                    output_stream.write(chunk)
+                    copied += len(chunk)
+                    context.report(
+                        CompressionProgress(
+                            min(99, round(copied / total * 100)),
+                            CompressionStage.SAVING,
+                        )
+                    )
+            if context.is_cancelled():
+                raise RuntimeError("Compression annulée")
+            os.replace(temporary, destination)
+        finally:
+            temporary.unlink(missing_ok=True)
+        context.report(CompressionProgress(100, CompressionStage.COMPLETE))
+        return replace(entry.result, destination=destination)
+
+    def _finish_tool_operation(self, result: object) -> None:
+        if isinstance(result, CompressionResult):
+            original_mb = result.original_size / 1_000_000
+            output_mb = result.compressed_size / 1_000_000
+            target_state = (
+                f" · {self.t('target_reached')}"
+                if result.target_size_bytes is not None and result.target_reached
+                else f" · {self.t('target_not_reached')}"
+                if result.target_size_bytes is not None
+                else ""
+            )
+            message = self.t(
+                "compression_done",
+                source=f"{original_mb:.2f}",
+                output=f"{output_mb:.2f}",
+                target=target_state,
+            )
+            warnings: list[str] = []
+            if result.rasterized:
+                warnings.append(self.t("compression_raster_warning"))
+            if result.target_size_bytes is not None:
+                if not result.target_reached:
+                    warnings.append(self.t("compression_target_warning"))
+                elif result.iterations == 0:
+                    warnings.append(self.t("compression_already_small_warning"))
+            elif result.warning:
+                warnings.append(self.t("compression_no_gain_warning"))
+            if warnings:
+                message = f"{message}. {' '.join(warnings)}"
+            self.workspace.show_message(message, error=not result.target_reached)
+            return
+        if isinstance(result, list):
+            self.workspace.show_message(self.t("files_created", count=len(result)))
+            return
+        if isinstance(result, Path):
+            self.workspace.show_message(self.t("file_created", path=result))
+            return
+        raise TypeError(self.t("unexpected_operation_result"))
 
     def _finish_split(self, result: object) -> None:
         if (
@@ -1008,20 +1886,40 @@ class MainWindow(QMainWindow):
 
     def _start_operation(
         self,
-        operation: Callable[[], Any],
+        operation: Callable[[], Any] | Callable[[OperationContext], Any],
         on_success: Callable[[object], None],
         error_title: str,
+        *,
+        contextual: bool = False,
+        on_progress: Callable[[object], None] | None = None,
     ) -> None:
-        task = OperationTask(operation)
+        task = OperationTask(operation, contextual=contextual)
         self._active_task = task
         self._set_busy(True)
+        if on_progress is not None:
+            task.signals.progress.connect(on_progress)
         task.signals.succeeded.connect(
             lambda result: self._operation_succeeded(task, result, on_success)
         )
         task.signals.failed.connect(
             lambda message: self._operation_failed(task, error_title, message)
         )
+        task.signals.cancelled.connect(lambda: self._operation_cancelled(task))
         QThreadPool.globalInstance().start(task)
+
+    def cancel_active_operation(self) -> None:
+        if self._active_task is None:
+            return
+        self._active_task.cancel()
+        self.workspace.set_operation_cancelling()
+
+    def _operation_cancelled(self, task: OperationTask) -> None:
+        if task is not self._active_task:
+            return
+        self._active_task = None
+        self._set_busy(False)
+        self.workspace.show_message(self.t("operation_cancelled"))
+        self.workspace.clear_sensitive_fields()
 
     def _operation_succeeded(
         self,
@@ -1037,6 +1935,8 @@ class MainWindow(QMainWindow):
             callback(result)
         except Exception as exc:
             self.workspace.show_message(str(exc), error=True)
+        finally:
+            self.workspace.clear_sensitive_fields()
 
     def _operation_failed(self, task: OperationTask, title: str, message: str) -> None:
         if task is not self._active_task:
@@ -1045,9 +1945,12 @@ class MainWindow(QMainWindow):
         self._set_busy(False)
         self.workspace.show_message(message, error=True)
         QMessageBox.critical(self, title, message)
+        self.workspace.clear_sensitive_fields()
 
     def _set_busy(self, busy: bool) -> None:
-        self.workspace.setEnabled(not busy)
+        if busy:
+            self.cancel_compression_preview(show_feedback=False)
+        self.workspace.set_operation_busy(busy)
         for action in self.shortcut_actions:
             action.setEnabled(not busy)
         app = QApplication.instance()
@@ -1140,5 +2043,10 @@ class MainWindow(QMainWindow):
         self.settings.setValue("window/splitter_sizes", self.workspace.splitter.sizes())
         self._closing = True
         self._update_task = None
+        self.cancel_compression_preview(show_feedback=False)
+        self._compression_preview_pool.clear()
+        self._compression_preview_pool.waitForDone()
+        self._compression_preview_cache.clear()
+        self._compression_preview_directory.cleanup()
         self.workspace.shutdown()
         event.accept()

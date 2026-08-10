@@ -34,8 +34,20 @@ PixoPDF is a free, cross-platform PDF toolbox by [PixoGlace](https://github.com/
   from Settings when desired
 - Access the PixoGlace Ko-fi sponsorship link from the permanent status bar
 - Drop PDF files directly from the file manager
+- Resize pages to A3, A4, A5 or Letter and create 2/4/6/9-up print sheets
+- Convert PDF pages to PNG/JPEG, assemble images into PDF and extract embedded images
+- Encrypt PDFs with an opening password, configure permissions and create an
+  authorized unlocked copy
+- Add visual signatures and date stamps to selected pages, or apply a verifiable
+  PKCS#12 digital signature with pyHanko
+- Compress with light, balanced or maximum profiles, or use Advanced mode to
+  choose a DPI, a target size, or both; a debounced background precompression
+  reports the exact output size and its reusable result is cached
+- Follow page-level compression progress and cancel a preview or export safely;
+  cancellation never replaces an existing destination file
 
-Advanced layout, annotations, conversion, security, compression, OCR and batch processing are on the roadmap. Unavailable tools are explicitly marked “Bientôt”.
+OCR, advanced annotations and queued batch recipes remain on the roadmap. Every
+tool currently shown in the permanent operation bar is functional.
 
 Automatic update checks contact only the public GitHub releases API. No PDF,
 file path or document metadata is included in that request.
@@ -53,9 +65,19 @@ poetry run pixopdf
 ```
 
 Run all checks with `make check`. Build the Python package and a platform-native
-application with `make build`. Windows and Linux receive an executable; macOS
-receives a signed-ready `PixoPDF.app` bundle with the correct application menu.
-The builds are produced separately.
+application with `make build`, then create the two distribution choices for the
+current OS with `make package`. `make release-current` runs validation, build and
+packaging together. Builds remain native and are produced separately on each OS.
+
+Every release provides a portable download and a native installer:
+
+- macOS Apple Silicon and Intel: portable `.zip` plus drag-to-Applications `.dmg`;
+- Windows x64: portable `.zip` plus an Inno Setup `.exe` installer;
+- Linux x86_64: portable `.tar.gz` plus a Debian/Ubuntu `.deb` package.
+
+The GitHub release also contains `SHA256SUMS.txt`. Current CI builds are ad-hoc
+signed on macOS and unsigned on Windows; users may therefore see the normal OS
+security warning until production signing and Apple notarization are configured.
 
 Application preferences are available with `Ctrl+,` on every platform
 (`⌘,` on macOS). They appear under **PixoPDF > Settings…** on macOS and
@@ -88,4 +110,4 @@ Pages source must be set to
 
 ## License
 
-Copyright © 2026 PixoGlace. PixoPDF is licensed under the **GNU General Public License v3.0 only** (`GPL-3.0-only`), not MIT. See `LICENSE`. Dependencies retain their respective licenses; notably Qt/PySide6 (LGPL/GPL/commercial), pikepdf (MPL-2.0), pypdfium2 (Apache-2.0/BSD-3-Clause and PDFium notices), and Pillow (HPND). Optional pyHanko, OCRmyPDF and Tesseract components retain their own licenses.
+Copyright © 2026 PixoGlace. PixoPDF is licensed under the **GNU General Public License v3.0 only** (`GPL-3.0-only`), not MIT. See `LICENSE`. Dependencies retain their respective licenses; notably Qt/PySide6 (LGPL/GPL/commercial), pikepdf (MPL-2.0), pypdfium2 (Apache-2.0/BSD-3-Clause and PDFium notices), Pillow (HPND) and pyHanko. Optional OCRmyPDF and Tesseract components retain their own licenses.

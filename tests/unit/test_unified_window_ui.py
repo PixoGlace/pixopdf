@@ -11,7 +11,7 @@ from pixopdf.pdf.backend import PdfBackend
 from pixopdf.pdf.renderer import PdfRenderer
 from pixopdf.services.project_service import ProjectService
 from pixopdf.ui.main_window import MainWindow
-from pixopdf.ui.tool_modes import MODE_SPECS, ModeStatus, WorkspaceMode
+from pixopdf.ui.tool_modes import MODE_SPECS, WorkspaceMode
 from pixopdf.ui.workspace.operation_worker import OperationTask
 from pixopdf.ui.workspace.workspace_page import WorkspacePage
 
@@ -103,7 +103,7 @@ def test_main_window_starts_on_home_with_drop_zone_and_hidden_side_panels(
     close_clean(window)
 
 
-def test_persistent_topbar_modes_disable_unavailable_workflows(
+def test_persistent_topbar_modes_open_every_workflow(
     qapp: QApplication,
 ) -> None:
     workspace = WorkspacePage(NoRenderRenderer())
@@ -119,25 +119,18 @@ def test_persistent_topbar_modes_disable_unavailable_workflows(
         button = workspace.mode_buttons[mode]
         assert button.isEnabled() is spec.is_selectable
         assert workspace.mode_actions[mode].isEnabled() is spec.is_selectable
-        if spec.status is ModeStatus.COMING_SOON:
-            assert "Disponible prochainement" in button.toolTip()
-            assert "prochainement" in button.accessibleDescription()
-            button.click()
-            workspace.set_mode(mode)
-            assert workspace.current_mode is WorkspaceMode.ORGANIZE
-
     assert requested == []
     workspace.mode_buttons[WorkspaceMode.MERGE].click()
     assert requested == [WorkspaceMode.MERGE.value]
     assert workspace.current_mode is WorkspaceMode.MERGE
     assert workspace.options_stack.currentWidget() is workspace.option_panels[WorkspaceMode.MERGE]
     assert workspace.splitter.indexOf(workspace.context_panel) == 2
-    assert workspace.is_home
+    assert not workspace.is_home
     assert workspace.findChild(QFrame, "topbar") is topbar
     workspace.shutdown()
 
 
-def test_programmatic_unavailable_mode_keeps_current_selectable_mode(
+def test_programmatic_mode_switches_to_advanced_panel(
     qapp: QApplication,
 ) -> None:
     workspace = WorkspacePage(NoRenderRenderer())
@@ -146,10 +139,11 @@ def test_programmatic_unavailable_mode_keeps_current_selectable_mode(
 
     workspace.set_mode(WorkspaceMode.PROTECT)
 
-    assert workspace.current_mode is WorkspaceMode.MERGE
-    assert workspace.mode_buttons[WorkspaceMode.MERGE].isChecked()
-    assert workspace.options_stack.currentWidget() is merge_panel
-    assert workspace.options_heading.text() == MODE_SPECS[WorkspaceMode.MERGE].label
+    assert workspace.current_mode is WorkspaceMode.PROTECT
+    assert workspace.mode_buttons[WorkspaceMode.PROTECT].isChecked()
+    assert workspace.options_stack.currentWidget() is workspace.option_panels[WorkspaceMode.PROTECT]
+    assert workspace.options_stack.currentWidget() is not merge_panel
+    assert workspace.options_heading.text() == MODE_SPECS[WorkspaceMode.PROTECT].label
     workspace.shutdown()
 
 
@@ -200,26 +194,27 @@ def test_import_opens_three_panel_workspace_and_preserves_selected_mode(
 
 
 @pytest.mark.parametrize(
-    "saved_mode",
+    ("saved_mode", "expected"),
     [
-        WorkspaceMode.CONVERT.value,
-        WorkspaceMode.PROTECT.value,
-        WorkspaceMode.SIGN.value,
-        WorkspaceMode.COMPRESS.value,
-        "unknown-mode",
+        (WorkspaceMode.CONVERT.value, WorkspaceMode.CONVERT),
+        (WorkspaceMode.PROTECT.value, WorkspaceMode.PROTECT),
+        (WorkspaceMode.SIGN.value, WorkspaceMode.SIGN),
+        (WorkspaceMode.COMPRESS.value, WorkspaceMode.COMPRESS),
+        ("unknown-mode", WorkspaceMode.ORGANIZE),
     ],
 )
-def test_unavailable_or_unknown_saved_mode_falls_back_to_organize(
+def test_valid_saved_modes_are_restored_and_unknown_mode_falls_back(
     saved_mode: str,
+    expected: WorkspaceMode,
     tmp_path: Path,
 ) -> None:
     settings = configure_settings(tmp_path, workflow__mode=saved_mode)
     window = MainWindow(ProjectService(UnifiedWindowBackend()))
 
-    assert window.active_mode is WorkspaceMode.ORGANIZE
-    assert window.workspace.current_mode is WorkspaceMode.ORGANIZE
-    assert window.workspace.mode_buttons[WorkspaceMode.ORGANIZE].isChecked()
-    assert settings.value("workflow/mode") == WorkspaceMode.ORGANIZE.value
+    assert window.active_mode is expected
+    assert window.workspace.current_mode is expected
+    assert window.workspace.mode_buttons[expected].isChecked()
+    assert settings.value("workflow/mode") == expected.value
 
     close_clean(window)
 

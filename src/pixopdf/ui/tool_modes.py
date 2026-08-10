@@ -83,7 +83,7 @@ MODE_SPECS: dict[WorkspaceMode, ModeSpec] = {
         "Préparez la mise en page",
         "Ajoutez des pages blanches et préparez vos documents pour l’écran ou l’impression.",
         "Pages à mettre en page",
-        ModeStatus.PARTIAL,
+        ModeStatus.READY,
         ("Modifier le format", "Plusieurs pages par feuille"),
     ),
     WorkspaceMode.CONVERT: ModeSpec(
@@ -93,7 +93,7 @@ MODE_SPECS: dict[WorkspaceMode, ModeSpec] = {
         "Convertissez vos documents",
         "Transformez localement un PDF en images ou des images en PDF.",
         "Document à convertir",
-        ModeStatus.COMING_SOON,
+        ModeStatus.READY,
         ("PDF vers images", "Images vers PDF", "Extraire les images"),
     ),
     WorkspaceMode.PROTECT: ModeSpec(
@@ -103,7 +103,7 @@ MODE_SPECS: dict[WorkspaceMode, ModeSpec] = {
         "Protégez vos PDF",
         "Ajoutez un mot de passe et contrôlez les permissions sans envoyer vos fichiers.",
         "Document à protéger",
-        ModeStatus.COMING_SOON,
+        ModeStatus.READY,
         ("Mot de passe d’ouverture", "Permissions", "Retirer un mot de passe"),
     ),
     WorkspaceMode.SIGN: ModeSpec(
@@ -113,7 +113,7 @@ MODE_SPECS: dict[WorkspaceMode, ModeSpec] = {
         "Signez et validez vos PDF",
         "Préparez une signature visuelle ou une signature numérique vérifiable.",
         "Document à signer",
-        ModeStatus.COMING_SOON,
+        ModeStatus.READY,
         ("Signature visuelle", "Signature numérique", "Ajouter la date"),
     ),
     WorkspaceMode.COMPRESS: ModeSpec(
@@ -123,7 +123,7 @@ MODE_SPECS: dict[WorkspaceMode, ModeSpec] = {
         "Réduisez la taille de vos PDF",
         "Choisissez un profil de compression adapté à l’envoi, au web ou à l’archivage.",
         "Document à compresser",
-        ModeStatus.COMING_SOON,
+        ModeStatus.READY,
         ("Compression légère", "Compression équilibrée", "Compression maximale"),
     ),
 }

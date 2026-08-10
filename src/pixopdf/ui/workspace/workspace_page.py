@@ -30,8 +30,12 @@ from PySide6.QtGui import (
     QTransform,
 )
 from PySide6.QtWidgets import (
+    QAbstractButton,
     QAbstractItemView,
     QButtonGroup,
+    QCheckBox,
+    QComboBox,
+    QDoubleSpinBox,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -40,6 +44,7 @@ from PySide6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QMenu,
+    QProgressBar,
     QPushButton,
     QRadioButton,
     QScrollArea,
@@ -490,6 +495,13 @@ class WorkspacePage(QWidget):
     redo_requested = Signal()
     mode_requested = Signal(str)
     primary_action_changed = Signal()
+    image_files_requested = Signal()
+    signature_image_requested = Signal()
+    certificate_file_requested = Signal()
+    protected_pdf_requested = Signal()
+    compression_preview_requested = Signal(object)
+    compression_preview_cancel_requested = Signal()
+    operation_cancel_requested = Signal()
 
     def __init__(self, renderer: PdfRenderer) -> None:
         super().__init__()
@@ -515,6 +527,16 @@ class WorkspacePage(QWidget):
         self._split_output_count = 0
         self._split_plan_valid = False
         self._split_groups: list[list[int]] | None = None
+        self._conversion_image_paths: list[str] = []
+        self._signature_image_path = ""
+        self._certificate_path = ""
+        self._protected_pdf_path = ""
+        self._compression_sources: frozenset[str] = frozenset()
+        self._compression_source_bytes = 0
+        self._compression_preview_timer = QTimer(self)
+        self._compression_preview_timer.setSingleShot(True)
+        self._compression_preview_timer.setInterval(650)
+        self._compression_preview_timer.timeout.connect(self._request_compression_preview)
         self._project: PdfProject | None = None
         self._home_active = True
         self._message_token = 0
@@ -523,7 +545,8 @@ class WorkspacePage(QWidget):
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
-        root.addWidget(self._create_topbar())
+        self.topbar = self._create_topbar()
+        root.addWidget(self.topbar)
         self.content_stack = QStackedWidget()
         self.content_stack.setObjectName("contentStack")
         self.home_view = self._create_home_view()
@@ -551,6 +574,7 @@ class WorkspacePage(QWidget):
         root.addWidget(self.content_stack, 1)
         self.statusbar = self._create_statusbar()
         root.addWidget(self.statusbar)
+        self._update_operation_controls()
         self.set_mode(self.current_mode)
         self._update_selection()
         self.show_home()
@@ -963,7 +987,7 @@ class WorkspacePage(QWidget):
         self.options_stack = QStackedWidget()
         self.options_stack.setObjectName("optionsStack")
         self.option_panels: dict[WorkspaceMode, QWidget] = {}
-        self.mode_specific_actions: dict[WorkspaceMode, list[QPushButton]] = {}
+        self.mode_specific_actions: dict[WorkspaceMode, list[QAbstractButton]] = {}
         for mode, spec in MODE_SPECS.items():
             if mode is WorkspaceMode.ORGANIZE:
                 page = self._create_organize_options()
@@ -973,6 +997,14 @@ class WorkspacePage(QWidget):
                 page = self._create_split_options()
             elif mode is WorkspaceMode.LAYOUT:
                 page = self._create_layout_options()
+            elif mode is WorkspaceMode.CONVERT:
+                page = self._create_convert_options()
+            elif mode is WorkspaceMode.PROTECT:
+                page = self._create_protect_options()
+            elif mode is WorkspaceMode.SIGN:
+                page = self._create_sign_options()
+            elif mode is WorkspaceMode.COMPRESS:
+                page = self._create_compress_options()
             else:
                 page = self._create_planned_options(spec)
             self.option_panels[mode] = page
@@ -1493,29 +1525,963 @@ class WorkspacePage(QWidget):
         body_layout.addWidget(layout_a5)
 
         body_layout.addWidget(self._option_heading("MISE EN PAGE"))
-        planned_buttons: list[QPushButton] = []
-        for action_name in MODE_SPECS[WorkspaceMode.LAYOUT].planned_actions:
-            button = QPushButton(action_name)
-            button.setObjectName("plannedAction")
-            button.setEnabled(False)
-            button.setToolTip("Disponible prochainement")
-            body_layout.addWidget(button)
-            planned_buttons.append(button)
-        note = QLabel(
-            "Les pages blanches sont disponibles dès maintenant. "
-            "Les formats avancés arrivent prochainement."
+        self.layout_operation_group = QButtonGroup(page)
+        self.layout_resize_radio = QRadioButton("Modifier le format")
+        self.layout_nup_radio = QRadioButton("Plusieurs pages par feuille")
+        for radio in (self.layout_resize_radio, self.layout_nup_radio):
+            self.layout_operation_group.addButton(radio)
+            radio.toggled.connect(self._update_operation_controls)
+
+        self.layout_resize_card, resize_layout = self._split_strategy_card(
+            self.layout_resize_radio,
+            "Adaptez les pages à un format standard sans rogner leur contenu.",
         )
-        note.setObjectName("contextHint")
-        note.setWordWrap(True)
-        body_layout.addWidget(note)
+        self.layout_resize_controls = QWidget()
+        resize_controls_layout = QGridLayout(self.layout_resize_controls)
+        resize_controls_layout.setContentsMargins(23, 0, 0, 0)
+        self.layout_target_format_label = QLabel("Format cible")
+        resize_controls_layout.addWidget(self.layout_target_format_label, 0, 0)
+        self.layout_page_size = QComboBox()
+        for label, size in (
+            ("A4 portrait", A4_PORTRAIT),
+            ("A4 paysage", A4_LANDSCAPE),
+            ("A5 portrait", A5_PORTRAIT),
+            ("Letter portrait", (612.0, 792.0)),
+            ("A3 portrait", (841.89, 1190.55)),
+        ):
+            self.layout_page_size.addItem(label, size)
+        resize_controls_layout.addWidget(self.layout_page_size, 0, 1)
+        self.layout_placement_label = QLabel("Placement")
+        resize_controls_layout.addWidget(self.layout_placement_label, 1, 0)
+        self.layout_fit_mode = QComboBox()
+        self.layout_fit_mode.addItem("Ajuster", "fit")
+        self.layout_fit_mode.addItem("Ajuster sans agrandir", "actual")
+        resize_controls_layout.addWidget(self.layout_fit_mode, 1, 1)
+        resize_layout.addWidget(self.layout_resize_controls)
+        body_layout.addWidget(self.layout_resize_card)
+
+        self.layout_nup_card, nup_layout = self._split_strategy_card(
+            self.layout_nup_radio,
+            "Regroupez plusieurs pages sur chaque feuille pour l’impression.",
+        )
+        self.layout_nup_controls = QWidget()
+        nup_controls_layout = QGridLayout(self.layout_nup_controls)
+        nup_controls_layout.setContentsMargins(23, 0, 0, 0)
+        self.layout_nup_count_label = QLabel("Pages par feuille")
+        nup_controls_layout.addWidget(self.layout_nup_count_label, 0, 0)
+        self.layout_nup_count = QComboBox()
+        for count in (2, 4, 6, 9):
+            self.layout_nup_count.addItem(str(count), count)
+        nup_controls_layout.addWidget(self.layout_nup_count, 0, 1)
+        self.layout_margin_label = QLabel("Marge (mm)")
+        nup_controls_layout.addWidget(self.layout_margin_label, 1, 0)
+        self.layout_margin = QSpinBox()
+        self.layout_margin.setRange(0, 30)
+        self.layout_margin.setValue(8)
+        nup_controls_layout.addWidget(self.layout_margin, 1, 1)
+        self.layout_sheet_label = QLabel("Feuille")
+        nup_controls_layout.addWidget(self.layout_sheet_label, 2, 0)
+        self.layout_sheet_size = QComboBox()
+        self.layout_sheet_size.addItem("A4 portrait", A4_PORTRAIT)
+        self.layout_sheet_size.addItem("A4 paysage", A4_LANDSCAPE)
+        self.layout_sheet_size.addItem("Letter portrait", (612.0, 792.0))
+        nup_controls_layout.addWidget(self.layout_sheet_size, 2, 1)
+        nup_layout.addWidget(self.layout_nup_controls)
+        body_layout.addWidget(self.layout_nup_card)
+
+        self.layout_export_hint = QLabel(
+            "L’aperçu conserve les indices d’origine. Le PDF transformé est créé à l’export."
+        )
+        self.layout_export_hint.setObjectName("contextHint")
+        self.layout_export_hint.setWordWrap(True)
+        body_layout.addWidget(self.layout_export_hint)
         body_layout.addStretch()
         self.layout_blank_buttons = [layout_portrait, layout_landscape, layout_a5]
         self.mode_specific_actions[WorkspaceMode.LAYOUT] = [
             *self.layout_blank_buttons,
-            *planned_buttons,
+            self.layout_resize_radio,
+            self.layout_nup_radio,
         ]
         page_layout.addWidget(self._options_scroll(body), 1)
+        for widget in (
+            self.layout_page_size,
+            self.layout_fit_mode,
+            self.layout_nup_count,
+            self.layout_margin,
+            self.layout_sheet_size,
+        ):
+            if isinstance(widget, QComboBox):
+                widget.currentIndexChanged.connect(self._update_operation_controls)
+            else:
+                widget.valueChanged.connect(self._update_operation_controls)
+        self.layout_resize_radio.setChecked(True)
         return page
+
+    def _create_convert_options(self) -> QWidget:
+        page = QWidget()
+        page.setObjectName("convertOptions")
+        page_layout = QVBoxLayout(page)
+        page_layout.setContentsMargins(0, 0, 0, 0)
+        body, body_layout = self._options_body()
+
+        self.convert_summary_label = QLabel("Choisissez le type de conversion.")
+        self.convert_summary_label.setObjectName("selectionSummary")
+        self.convert_summary_label.setWordWrap(True)
+        body_layout.addWidget(self.convert_summary_label)
+        self.convert_group = QButtonGroup(page)
+        self.convert_pdf_images_radio = QRadioButton("PDF vers images")
+        self.convert_images_pdf_radio = QRadioButton("Images vers PDF")
+        self.convert_extract_radio = QRadioButton("Extraire les images")
+        for radio in (
+            self.convert_pdf_images_radio,
+            self.convert_images_pdf_radio,
+            self.convert_extract_radio,
+        ):
+            self.convert_group.addButton(radio)
+            radio.toggled.connect(self._update_operation_controls)
+
+        self.convert_pdf_card, pdf_layout = self._split_strategy_card(
+            self.convert_pdf_images_radio,
+            "Créez une image fidèle pour chaque page active.",
+        )
+        self.convert_pdf_controls = QWidget()
+        pdf_controls_layout = QGridLayout(self.convert_pdf_controls)
+        pdf_controls_layout.setContentsMargins(23, 0, 0, 0)
+        self.convert_format_label = QLabel("Format")
+        pdf_controls_layout.addWidget(self.convert_format_label, 0, 0)
+        self.convert_image_format = QComboBox()
+        self.convert_image_format.addItem("PNG", "png")
+        self.convert_image_format.addItem("JPEG", "jpeg")
+        pdf_controls_layout.addWidget(self.convert_image_format, 0, 1)
+        self.convert_dpi_label = QLabel("Résolution (DPI)")
+        pdf_controls_layout.addWidget(self.convert_dpi_label, 1, 0)
+        self.convert_dpi = QSpinBox()
+        self.convert_dpi.setRange(72, 600)
+        self.convert_dpi.setValue(150)
+        self.convert_dpi.setSingleStep(25)
+        pdf_controls_layout.addWidget(self.convert_dpi, 1, 1)
+        self.convert_quality_label = QLabel("Qualité JPEG")
+        pdf_controls_layout.addWidget(self.convert_quality_label, 2, 0)
+        self.convert_quality = QSlider(Qt.Orientation.Horizontal)
+        self.convert_quality.setRange(30, 100)
+        self.convert_quality.setValue(88)
+        pdf_controls_layout.addWidget(self.convert_quality, 2, 1)
+        pdf_layout.addWidget(self.convert_pdf_controls)
+        body_layout.addWidget(self.convert_pdf_card)
+
+        self.convert_images_card, images_layout = self._split_strategy_card(
+            self.convert_images_pdf_radio,
+            "Assemblez des images dans un PDF multipage, dans l’ordre sélectionné.",
+        )
+        self.convert_images_controls = QWidget()
+        images_controls_layout = QVBoxLayout(self.convert_images_controls)
+        images_controls_layout.setContentsMargins(23, 0, 0, 0)
+        self.convert_choose_images_button = self._button(
+            "＋  Choisir des images",
+            self.image_files_requested.emit,
+            "accentFlatButton",
+            "Choisir des fichiers PNG, JPEG, WebP ou TIFF",
+        )
+        images_controls_layout.addWidget(self.convert_choose_images_button)
+        self.convert_images_label = QLabel("Aucune image sélectionnée")
+        self.convert_images_label.setObjectName("organizeActionStatus")
+        self.convert_images_label.setWordWrap(True)
+        images_controls_layout.addWidget(self.convert_images_label)
+        self.convert_images_settings = QWidget()
+        images_settings_layout = QGridLayout(self.convert_images_settings)
+        images_settings_layout.setContentsMargins(0, 0, 0, 0)
+        self.convert_images_dpi_label = QLabel("Résolution (DPI)")
+        images_settings_layout.addWidget(self.convert_images_dpi_label, 0, 0)
+        self.convert_images_dpi = QSpinBox()
+        self.convert_images_dpi.setRange(72, 600)
+        self.convert_images_dpi.setValue(150)
+        self.convert_images_dpi.setSingleStep(25)
+        images_settings_layout.addWidget(self.convert_images_dpi, 0, 1)
+        self.convert_images_quality_label = QLabel("Qualité JPEG")
+        images_settings_layout.addWidget(self.convert_images_quality_label, 1, 0)
+        self.convert_images_quality = QSlider(Qt.Orientation.Horizontal)
+        self.convert_images_quality.setRange(30, 100)
+        self.convert_images_quality.setValue(92)
+        images_settings_layout.addWidget(self.convert_images_quality, 1, 1)
+        images_controls_layout.addWidget(self.convert_images_settings)
+        images_layout.addWidget(self.convert_images_controls)
+        body_layout.addWidget(self.convert_images_card)
+
+        self.convert_extract_card, extract_layout = self._split_strategy_card(
+            self.convert_extract_radio,
+            "Récupérez les images réellement incorporées dans le PDF.",
+        )
+        self.convert_extract_controls = QWidget()
+        extract_controls_layout = QGridLayout(self.convert_extract_controls)
+        extract_controls_layout.setContentsMargins(23, 0, 0, 0)
+        self.convert_extract_output_label = QLabel("Sortie")
+        extract_controls_layout.addWidget(self.convert_extract_output_label, 0, 0)
+        self.convert_extract_format = QComboBox()
+        self.convert_extract_format.addItem("Format original si possible", "original")
+        extract_controls_layout.addWidget(self.convert_extract_format, 0, 1)
+        extract_layout.addWidget(self.convert_extract_controls)
+        body_layout.addWidget(self.convert_extract_card)
+        body_layout.addStretch()
+        page_layout.addWidget(self._options_scroll(body), 1)
+        self.mode_specific_actions[WorkspaceMode.CONVERT] = [
+            self.convert_pdf_images_radio,
+            self.convert_images_pdf_radio,
+            self.convert_extract_radio,
+            self.convert_choose_images_button,
+        ]
+        for widget in (
+            self.convert_image_format,
+            self.convert_dpi,
+            self.convert_quality,
+            self.convert_images_dpi,
+            self.convert_images_quality,
+            self.convert_extract_format,
+        ):
+            signal = (
+                widget.currentIndexChanged if isinstance(widget, QComboBox) else widget.valueChanged
+            )
+            signal.connect(self._update_operation_controls)
+        self.convert_pdf_images_radio.setChecked(True)
+        return page
+
+    def _create_protect_options(self) -> QWidget:
+        page = QWidget()
+        page.setObjectName("protectOptions")
+        page_layout = QVBoxLayout(page)
+        page_layout.setContentsMargins(0, 0, 0, 0)
+        body, body_layout = self._options_body()
+        self.protect_summary_label = QLabel(
+            "Les mots de passe restent uniquement en mémoire pendant le traitement."
+        )
+        self.protect_summary_label.setObjectName("selectionSummary")
+        self.protect_summary_label.setWordWrap(True)
+        body_layout.addWidget(self.protect_summary_label)
+
+        self.protect_group = QButtonGroup(page)
+        self.protect_password_radio = QRadioButton("Mot de passe d’ouverture")
+        self.protect_permissions_radio = QRadioButton("Permissions")
+        self.protect_remove_radio = QRadioButton("Retirer un mot de passe")
+        for radio in (
+            self.protect_password_radio,
+            self.protect_permissions_radio,
+            self.protect_remove_radio,
+        ):
+            self.protect_group.addButton(radio)
+            radio.toggled.connect(self._update_operation_controls)
+
+        self.protect_password_card, password_layout = self._split_strategy_card(
+            self.protect_password_radio,
+            "Chiffrez le PDF avec un mot de passe requis à l’ouverture.",
+        )
+        self.protect_password_controls = QWidget()
+        password_controls_layout = QVBoxLayout(self.protect_password_controls)
+        password_controls_layout.setContentsMargins(23, 0, 0, 0)
+        self.protect_user_password = QLineEdit()
+        self.protect_user_password.setEchoMode(QLineEdit.EchoMode.Password)
+        self.protect_user_password.setPlaceholderText("Mot de passe")
+        self.protect_confirm_password = QLineEdit()
+        self.protect_confirm_password.setEchoMode(QLineEdit.EchoMode.Password)
+        self.protect_confirm_password.setPlaceholderText("Confirmer le mot de passe")
+        password_controls_layout.addWidget(self.protect_user_password)
+        password_controls_layout.addWidget(self.protect_confirm_password)
+        password_layout.addWidget(self.protect_password_controls)
+        body_layout.addWidget(self.protect_password_card)
+
+        self.protect_permissions_card, permissions_layout = self._split_strategy_card(
+            self.protect_permissions_radio,
+            "Définissez les usages autorisés par les lecteurs PDF compatibles.",
+        )
+        self.protect_permissions_controls = QWidget()
+        permissions_controls_layout = QVBoxLayout(self.protect_permissions_controls)
+        permissions_controls_layout.setContentsMargins(23, 0, 0, 0)
+        self.protect_owner_password = QLineEdit()
+        self.protect_owner_password.setEchoMode(QLineEdit.EchoMode.Password)
+        self.protect_owner_password.setPlaceholderText("Mot de passe propriétaire")
+        self.protect_confirm_owner_password = QLineEdit()
+        self.protect_confirm_owner_password.setEchoMode(QLineEdit.EchoMode.Password)
+        self.protect_confirm_owner_password.setPlaceholderText(
+            "Confirmer le mot de passe propriétaire"
+        )
+        self.protect_allow_print = QCheckBox("Autoriser l’impression")
+        self.protect_allow_print.setChecked(True)
+        self.protect_allow_copy = QCheckBox("Autoriser la copie du contenu")
+        self.protect_allow_copy.setChecked(True)
+        self.protect_allow_modify = QCheckBox("Autoriser les modifications")
+        self.protect_allow_modify.setChecked(False)
+        permissions_controls_layout.addWidget(self.protect_owner_password)
+        permissions_controls_layout.addWidget(self.protect_confirm_owner_password)
+        permissions_controls_layout.addWidget(self.protect_allow_print)
+        permissions_controls_layout.addWidget(self.protect_allow_copy)
+        permissions_controls_layout.addWidget(self.protect_allow_modify)
+        permissions_layout.addWidget(self.protect_permissions_controls)
+        body_layout.addWidget(self.protect_permissions_card)
+
+        self.protect_remove_card, remove_layout = self._split_strategy_card(
+            self.protect_remove_radio,
+            "Ouvrez un PDF protégé avec son mot de passe et créez une copie déverrouillée.",
+        )
+        self.protect_remove_controls = QWidget()
+        remove_controls_layout = QVBoxLayout(self.protect_remove_controls)
+        remove_controls_layout.setContentsMargins(23, 0, 0, 0)
+        self.protect_choose_file_button = self._button(
+            "Choisir un PDF protégé",
+            self.protected_pdf_requested.emit,
+            tooltip="Le fichier peut être différent des documents du workspace",
+        )
+        self.protect_file_label = QLabel("Utiliser le document actif")
+        self.protect_file_label.setObjectName("organizeActionStatus")
+        self.protect_file_label.setWordWrap(True)
+        self.protect_remove_password = QLineEdit()
+        self.protect_remove_password.setEchoMode(QLineEdit.EchoMode.Password)
+        self.protect_remove_password.setPlaceholderText("Mot de passe actuel")
+        remove_controls_layout.addWidget(self.protect_choose_file_button)
+        remove_controls_layout.addWidget(self.protect_file_label)
+        remove_controls_layout.addWidget(self.protect_remove_password)
+        remove_layout.addWidget(self.protect_remove_controls)
+        body_layout.addWidget(self.protect_remove_card)
+        self.protect_warning = QLabel(
+            "Les permissions PDF ne constituent pas un DRM et peuvent être ignorées "
+            "par certains lecteurs."
+        )
+        self.protect_warning.setObjectName("contextHint")
+        self.protect_warning.setWordWrap(True)
+        body_layout.addWidget(self.protect_warning)
+        body_layout.addStretch()
+        page_layout.addWidget(self._options_scroll(body), 1)
+        self.mode_specific_actions[WorkspaceMode.PROTECT] = [
+            self.protect_password_radio,
+            self.protect_permissions_radio,
+            self.protect_remove_radio,
+            self.protect_choose_file_button,
+        ]
+        for field in (
+            self.protect_user_password,
+            self.protect_confirm_password,
+            self.protect_owner_password,
+            self.protect_confirm_owner_password,
+            self.protect_remove_password,
+        ):
+            field.textChanged.connect(self._update_operation_controls)
+        for checkbox in (
+            self.protect_allow_print,
+            self.protect_allow_copy,
+            self.protect_allow_modify,
+        ):
+            checkbox.toggled.connect(self._update_operation_controls)
+        self.protect_password_radio.setChecked(True)
+        return page
+
+    def _create_sign_options(self) -> QWidget:
+        page = QWidget()
+        page.setObjectName("signOptions")
+        page_layout = QVBoxLayout(page)
+        page_layout.setContentsMargins(0, 0, 0, 0)
+        body, body_layout = self._options_body()
+        self.sign_summary_label = QLabel(
+            "Une signature visuelle est une marque graphique; seule la signature "
+            "numérique est vérifiable."
+        )
+        self.sign_summary_label.setObjectName("selectionSummary")
+        self.sign_summary_label.setWordWrap(True)
+        body_layout.addWidget(self.sign_summary_label)
+        self.sign_group = QButtonGroup(page)
+        self.sign_visual_radio = QRadioButton("Signature visuelle")
+        self.sign_digital_radio = QRadioButton("Signature numérique")
+        self.sign_date_radio = QRadioButton("Ajouter la date")
+        for radio in (self.sign_visual_radio, self.sign_digital_radio, self.sign_date_radio):
+            self.sign_group.addButton(radio)
+            radio.toggled.connect(self._update_operation_controls)
+
+        self.sign_visual_card, visual_layout = self._split_strategy_card(
+            self.sign_visual_radio,
+            "Ajoutez une image de signature sur les pages sélectionnées ou la dernière page.",
+        )
+        self.sign_visual_controls = QWidget()
+        visual_controls_layout = QVBoxLayout(self.sign_visual_controls)
+        visual_controls_layout.setContentsMargins(23, 0, 0, 0)
+        self.sign_choose_image_button = self._button(
+            "Choisir une signature",
+            self.signature_image_requested.emit,
+            "accentFlatButton",
+            "Choisir une image PNG ou JPEG",
+        )
+        self.sign_image_label = QLabel("Aucune image sélectionnée")
+        self.sign_image_label.setObjectName("organizeActionStatus")
+        self.sign_position = QComboBox()
+        self.sign_position.addItem("En bas à droite", "bottom_right")
+        self.sign_position.addItem("En bas à gauche", "bottom_left")
+        self.sign_position.addItem("Au centre", "center")
+        self.sign_position.addItem("En haut à droite", "top_right")
+        visual_controls_layout.addWidget(self.sign_choose_image_button)
+        visual_controls_layout.addWidget(self.sign_image_label)
+        visual_controls_layout.addWidget(self.sign_position)
+        visual_layout.addWidget(self.sign_visual_controls)
+        body_layout.addWidget(self.sign_visual_card)
+
+        self.sign_digital_card, digital_layout = self._split_strategy_card(
+            self.sign_digital_radio,
+            "Signez le PDF final avec un certificat PKCS#12 (.p12 ou .pfx).",
+        )
+        self.sign_digital_controls = QWidget()
+        digital_controls_layout = QVBoxLayout(self.sign_digital_controls)
+        digital_controls_layout.setContentsMargins(23, 0, 0, 0)
+        self.sign_choose_certificate_button = self._button(
+            "Choisir un certificat",
+            self.certificate_file_requested.emit,
+            tooltip="Choisir un certificat .p12 ou .pfx",
+        )
+        self.sign_certificate_label = QLabel("Aucun certificat sélectionné")
+        self.sign_certificate_label.setObjectName("organizeActionStatus")
+        self.sign_certificate_password = QLineEdit()
+        self.sign_certificate_password.setEchoMode(QLineEdit.EchoMode.Password)
+        self.sign_certificate_password.setPlaceholderText("Mot de passe du certificat")
+        digital_controls_layout.addWidget(self.sign_choose_certificate_button)
+        digital_controls_layout.addWidget(self.sign_certificate_label)
+        digital_controls_layout.addWidget(self.sign_certificate_password)
+        digital_layout.addWidget(self.sign_digital_controls)
+        body_layout.addWidget(self.sign_digital_card)
+
+        self.sign_date_card, date_layout = self._split_strategy_card(
+            self.sign_date_radio,
+            "Ajoutez la date courante comme tampon visible.",
+        )
+        self.sign_date_controls = QWidget()
+        date_controls_layout = QVBoxLayout(self.sign_date_controls)
+        date_controls_layout.setContentsMargins(23, 0, 0, 0)
+        self.sign_date_position = QComboBox()
+        self.sign_date_position.addItem("En bas à droite", "bottom_right")
+        self.sign_date_position.addItem("En bas à gauche", "bottom_left")
+        self.sign_date_position.addItem("En haut à droite", "top_right")
+        self.sign_date_position.addItem("En haut à gauche", "top_left")
+        self.sign_date_include_time = QCheckBox("Inclure l’heure")
+        date_controls_layout.addWidget(self.sign_date_position)
+        date_controls_layout.addWidget(self.sign_date_include_time)
+        date_layout.addWidget(self.sign_date_controls)
+        body_layout.addWidget(self.sign_date_card)
+        body_layout.addStretch()
+        page_layout.addWidget(self._options_scroll(body), 1)
+        self.mode_specific_actions[WorkspaceMode.SIGN] = [
+            self.sign_visual_radio,
+            self.sign_digital_radio,
+            self.sign_date_radio,
+            self.sign_choose_image_button,
+            self.sign_choose_certificate_button,
+        ]
+        for widget in (self.sign_position, self.sign_date_position):
+            widget.currentIndexChanged.connect(self._update_operation_controls)
+        self.sign_certificate_password.textChanged.connect(self._update_operation_controls)
+        self.sign_date_include_time.toggled.connect(self._update_operation_controls)
+        self.sign_visual_radio.setChecked(True)
+        return page
+
+    def _create_compress_options(self) -> QWidget:
+        page = QWidget()
+        page.setObjectName("compressOptions")
+        page_layout = QVBoxLayout(page)
+        page_layout.setContentsMargins(0, 0, 0, 0)
+        body, body_layout = self._options_body()
+        self.compress_summary_label = QLabel("Choisissez le compromis entre qualité et poids.")
+        self.compress_summary_label.setObjectName("selectionSummary")
+        self.compress_summary_label.setWordWrap(True)
+        body_layout.addWidget(self.compress_summary_label)
+        self.compress_preview_feedback = QLabel()
+        self.compress_preview_feedback.setObjectName("organizeActionStatus")
+        self.compress_preview_feedback.setWordWrap(True)
+        self.compress_preview_feedback.hide()
+        body_layout.addWidget(self.compress_preview_feedback)
+        self.compress_preview_row = QWidget()
+        preview_row_layout = QHBoxLayout(self.compress_preview_row)
+        preview_row_layout.setContentsMargins(0, 0, 0, 0)
+        preview_row_layout.setSpacing(7)
+        self.compress_preview_progress = QProgressBar()
+        self.compress_preview_progress.setObjectName("operationProgress")
+        self.compress_preview_progress.setRange(0, 100)
+        self.compress_preview_progress.setValue(0)
+        self.compress_preview_progress.setTextVisible(True)
+        preview_row_layout.addWidget(self.compress_preview_progress, 1)
+        self.compress_preview_cancel_button = self._button(
+            "Annuler",
+            self.compression_preview_cancel_requested.emit,
+            "secondaryButton",
+        )
+        preview_row_layout.addWidget(self.compress_preview_cancel_button)
+        self.compress_preview_row.hide()
+        body_layout.addWidget(self.compress_preview_row)
+        self.compress_group = QButtonGroup(page)
+        self.compress_light_radio = QRadioButton("Compression légère")
+        self.compress_balanced_radio = QRadioButton("Compression équilibrée")
+        self.compress_max_radio = QRadioButton("Compression maximale")
+        self.compress_advanced_radio = QRadioButton("Mode avancé")
+        compress_cards: list[tuple[QFrame, QRadioButton]] = []
+        for radio, description in (
+            (self.compress_light_radio, "Optimisation sans perte; qualité inchangée."),
+            (self.compress_balanced_radio, "Réduction des images avec une qualité élevée."),
+            (self.compress_max_radio, "Réduction forte, adaptée à l’envoi et au web."),
+            (
+                self.compress_advanced_radio,
+                "Choisissez le DPI, une taille cible, ou combinez les deux.",
+            ),
+        ):
+            self.compress_group.addButton(radio)
+            radio.toggled.connect(self._update_operation_controls)
+            card, card_layout = self._split_strategy_card(radio, description)
+            compress_cards.append((card, radio))
+            if radio is self.compress_advanced_radio:
+                self.compress_advanced_controls = QWidget()
+                target_layout = QVBoxLayout(self.compress_advanced_controls)
+                target_layout.setContentsMargins(23, 0, 0, 0)
+                target_layout.setSpacing(7)
+                dpi_row = QHBoxLayout()
+                self.compress_use_dpi = QCheckBox("Limiter la résolution")
+                self.compress_use_dpi.setChecked(True)
+                dpi_row.addWidget(self.compress_use_dpi)
+                dpi_row.addStretch()
+                self.compress_dpi = QSpinBox()
+                self.compress_dpi.setRange(72, 600)
+                self.compress_dpi.setValue(150)
+                self.compress_dpi.setSuffix(" DPI")
+                dpi_row.addWidget(self.compress_dpi)
+                target_layout.addLayout(dpi_row)
+                target_row = QHBoxLayout()
+                self.compress_use_target = QCheckBox("Viser une taille de sortie")
+                target_row.addWidget(self.compress_use_target)
+                target_row.addStretch()
+                self.compress_target_size = QDoubleSpinBox()
+                self.compress_target_size.setRange(0.1, 10240.0)
+                self.compress_target_size.setDecimals(1)
+                self.compress_target_size.setValue(5.0)
+                self.compress_target_size.setSuffix(" Mo")
+                target_row.addWidget(self.compress_target_size)
+                target_layout.addLayout(target_row)
+                self.compress_allow_raster = QCheckBox("Autoriser le mode raster")
+                self.compress_allow_raster.setChecked(False)
+                target_layout.addWidget(self.compress_allow_raster)
+                self.compress_raster_warning = QLabel(
+                    "Le mode raster supprime le texte sélectionnable, les liens et formulaires."
+                )
+                self.compress_raster_warning.setObjectName("organizeActionStatus")
+                self.compress_raster_warning.setWordWrap(True)
+                target_layout.addWidget(self.compress_raster_warning)
+                card_layout.addWidget(self.compress_advanced_controls)
+            body_layout.addWidget(card)
+        self.compress_cards = compress_cards
+        self.compress_result_hint = QLabel(
+            "La taille cible est une limite souhaitée : PixoPDF préservera la lisibilité "
+            "et signalera si elle ne peut pas être atteinte."
+        )
+        self.compress_result_hint.setObjectName("contextHint")
+        self.compress_result_hint.setWordWrap(True)
+        body_layout.addWidget(self.compress_result_hint)
+        body_layout.addStretch()
+        page_layout.addWidget(self._options_scroll(body), 1)
+        self.mode_specific_actions[WorkspaceMode.COMPRESS] = [
+            self.compress_light_radio,
+            self.compress_balanced_radio,
+            self.compress_max_radio,
+            self.compress_advanced_radio,
+        ]
+        self.compress_use_dpi.toggled.connect(self._update_operation_controls)
+        self.compress_dpi.valueChanged.connect(self._update_operation_controls)
+        self.compress_use_target.toggled.connect(self._update_operation_controls)
+        self.compress_target_size.valueChanged.connect(self._update_operation_controls)
+        self.compress_allow_raster.toggled.connect(self._update_operation_controls)
+        self.compress_balanced_radio.setChecked(True)
+        return page
+
+    @staticmethod
+    def _set_option_card_selected(card: QFrame, selected: bool) -> None:
+        card.setProperty("selected", selected)
+        description = card.findChild(QLabel, "splitStrategyDescription")
+        if description is not None:
+            description.setVisible(selected)
+        card.style().unpolish(card)
+        card.style().polish(card)
+
+    def _update_operation_controls(self, *_args: object) -> None:
+        """Keep advanced panels concise and synchronize the primary action."""
+        if hasattr(self, "layout_resize_controls"):
+            resize = self.layout_resize_radio.isChecked()
+            self.layout_resize_controls.setVisible(resize)
+            self.layout_nup_controls.setVisible(not resize)
+            self._set_option_card_selected(self.layout_resize_card, resize)
+            self._set_option_card_selected(self.layout_nup_card, not resize)
+        if hasattr(self, "convert_pdf_controls"):
+            selected = (
+                self.convert_pdf_images_radio,
+                self.convert_images_pdf_radio,
+                self.convert_extract_radio,
+            )
+            controls = (
+                self.convert_pdf_controls,
+                self.convert_images_controls,
+                self.convert_extract_controls,
+            )
+            cards = (
+                self.convert_pdf_card,
+                self.convert_images_card,
+                self.convert_extract_card,
+            )
+            for radio, control, card in zip(selected, controls, cards, strict=True):
+                active = radio.isChecked()
+                control.setVisible(active)
+                self._set_option_card_selected(card, active)
+            jpeg_output = self.convert_image_format.currentData() == "jpeg"
+            self.convert_quality_label.setVisible(jpeg_output)
+            self.convert_quality.setVisible(jpeg_output)
+        if hasattr(self, "protect_password_controls"):
+            if self.protect_password_radio.isChecked():
+                password = self.protect_user_password.text()
+                confirmation = self.protect_confirm_password.text()
+                valid = bool(password) and password == confirmation
+                feedback = (
+                    self.t("protection_ready")
+                    if valid
+                    else self.t("passwords_mismatch")
+                    if password and confirmation
+                    else self.t("enter_password_feedback")
+                )
+            elif self.protect_permissions_radio.isChecked():
+                password = self.protect_owner_password.text()
+                confirmation = self.protect_confirm_owner_password.text()
+                valid = bool(password) and password == confirmation
+                feedback = (
+                    self.t("protection_ready")
+                    if valid
+                    else self.t("passwords_mismatch")
+                    if password and confirmation
+                    else self.t("enter_password_feedback")
+                )
+            else:
+                valid = bool(self.protect_remove_password.text()) and bool(
+                    self._protected_pdf_path or self._active_page_count
+                )
+                feedback = (
+                    self.t("protection_ready") if valid else self.t("remove_password_feedback")
+                )
+            self.protect_summary_label.setText(feedback)
+            self.protect_summary_label.setProperty("feedback", "success" if valid else "error")
+            self.protect_summary_label.style().unpolish(self.protect_summary_label)
+            self.protect_summary_label.style().polish(self.protect_summary_label)
+            selected = (
+                self.protect_password_radio,
+                self.protect_permissions_radio,
+                self.protect_remove_radio,
+            )
+            controls = (
+                self.protect_password_controls,
+                self.protect_permissions_controls,
+                self.protect_remove_controls,
+            )
+            cards = (
+                self.protect_password_card,
+                self.protect_permissions_card,
+                self.protect_remove_card,
+            )
+            for radio, control, card in zip(selected, controls, cards, strict=True):
+                active = radio.isChecked()
+                control.setVisible(active)
+                self._set_option_card_selected(card, active)
+        if hasattr(self, "sign_visual_controls"):
+            selected = (self.sign_visual_radio, self.sign_digital_radio, self.sign_date_radio)
+            controls = (
+                self.sign_visual_controls,
+                self.sign_digital_controls,
+                self.sign_date_controls,
+            )
+            cards = (self.sign_visual_card, self.sign_digital_card, self.sign_date_card)
+            for radio, control, card in zip(selected, controls, cards, strict=True):
+                active = radio.isChecked()
+                control.setVisible(active)
+                self._set_option_card_selected(card, active)
+        if hasattr(self, "compress_cards"):
+            for card, radio in self.compress_cards:
+                self._set_option_card_selected(card, radio.isChecked())
+            advanced = self.compress_advanced_radio.isChecked()
+            self.compress_advanced_controls.setVisible(advanced)
+            self.compress_dpi.setEnabled(self.compress_use_dpi.isChecked())
+            target_enabled = self.compress_use_target.isChecked()
+            self.compress_target_size.setEnabled(target_enabled)
+            self.compress_allow_raster.setVisible(advanced and target_enabled)
+            self.compress_raster_warning.setVisible(advanced and target_enabled)
+            self._update_compression_estimate()
+        if hasattr(self, "export_button"):
+            self._update_primary_action()
+            self._update_export_state()
+
+    def estimated_compression_size(self) -> int | None:
+        """Return an immediate, conservative estimate for the current controls."""
+        source = self._compression_source_bytes
+        if source <= 0:
+            return None
+        action = self.selected_operation()
+        profile_factors = {"light": 0.92, "balanced": 0.62, "maximum": 0.38}
+        if action in profile_factors:
+            factor = profile_factors[action]
+            return min(source, max(1, round(source * factor)))
+        if action != "advanced":
+            return None
+        estimates: list[int] = []
+        if self.compress_use_dpi.isChecked():
+            dpi = self.compress_dpi.value()
+            factor = min(0.98, 0.16 + 0.74 * (dpi / 300) ** 1.25)
+            estimates.append(max(1, round(source * factor)))
+        if self.compress_use_target.isChecked():
+            estimates.append(int(self.compress_target_size.value() * 1_000_000))
+        return min(source, *estimates) if estimates else None
+
+    def _update_compression_estimate(self) -> None:
+        if not hasattr(self, "compress_summary_label"):
+            return
+        estimate = self.estimated_compression_size()
+        if self._compression_source_bytes <= 0:
+            self.compress_summary_label.setText(self.t("compression_estimate_unavailable"))
+            self._schedule_compression_preview()
+            return
+        if estimate is None:
+            self.compress_summary_label.setText(self.t("compression_choose_advanced_setting"))
+            self._schedule_compression_preview()
+            return
+        source_mb = self._compression_source_bytes / 1_000_000
+        output_mb = estimate / 1_000_000
+        saving = max(0, round((1 - estimate / self._compression_source_bytes) * 100))
+        self.compress_summary_label.setText(
+            self.t(
+                "compression_live_estimate",
+                source=f"{source_mb:.2f}",
+                output=f"{output_mb:.2f}",
+                saving=saving,
+            )
+        )
+        self._schedule_compression_preview()
+
+    def _schedule_compression_preview(self) -> None:
+        if not hasattr(self, "compress_preview_feedback"):
+            return
+        self._compression_preview_timer.stop()
+        preview_available = (
+            self.current_mode is WorkspaceMode.COMPRESS
+            and not self._home_active
+            and self._active_page_count > 0
+            and self.estimated_compression_size() is not None
+        )
+        if not preview_available:
+            self.compress_preview_feedback.hide()
+            self.compress_preview_row.hide()
+            return
+        self.compress_preview_feedback.setText(self.t("compression_preview_scheduled"))
+        self.compress_preview_feedback.setProperty("feedback", "none")
+        self._refresh_compression_preview_feedback_style()
+        self.compress_preview_feedback.show()
+        self.compress_preview_row.hide()
+        self._compression_preview_timer.start()
+
+    def _request_compression_preview(self) -> None:
+        if (
+            self.current_mode is WorkspaceMode.COMPRESS
+            and not self._home_active
+            and self._active_page_count > 0
+        ):
+            self.compression_preview_requested.emit(self.operation_options())
+
+    def set_compression_preview_progress(self, percent: int, text: str) -> None:
+        self.compress_preview_feedback.setText(text)
+        self.compress_preview_feedback.setProperty("feedback", "none")
+        self._refresh_compression_preview_feedback_style()
+        self.compress_preview_feedback.show()
+        self.compress_preview_progress.setValue(max(0, min(100, percent)))
+        self.compress_preview_cancel_button.setEnabled(True)
+        self.compress_preview_row.show()
+
+    def set_compression_preview_result(
+        self,
+        source_bytes: int,
+        output_bytes: int,
+        *,
+        cached: bool,
+    ) -> None:
+        source_mb = source_bytes / 1_000_000
+        output_mb = output_bytes / 1_000_000
+        saving = max(0, round((1 - output_bytes / max(1, source_bytes)) * 100))
+        self.compress_summary_label.setText(
+            self.t(
+                "compression_exact_result",
+                source=f"{source_mb:.2f}",
+                output=f"{output_mb:.2f}",
+                saving=saving,
+            )
+        )
+        self.compress_preview_feedback.setText(
+            self.t("compression_preview_cached" if cached else "compression_preview_ready")
+        )
+        self.compress_preview_feedback.setProperty("feedback", "success")
+        self._refresh_compression_preview_feedback_style()
+        self.compress_preview_feedback.show()
+        self.compress_preview_row.hide()
+
+    def set_compression_preview_error(self, message: str) -> None:
+        self.compress_preview_feedback.setText(message)
+        self.compress_preview_feedback.setProperty("feedback", "error")
+        self._refresh_compression_preview_feedback_style()
+        self.compress_preview_feedback.show()
+        self.compress_preview_row.hide()
+
+    def set_compression_preview_cancelled(self) -> None:
+        self.compress_preview_feedback.setText(self.t("compression_preview_cancelled"))
+        self.compress_preview_feedback.setProperty("feedback", "none")
+        self._refresh_compression_preview_feedback_style()
+        self.compress_preview_feedback.show()
+        self.compress_preview_row.hide()
+
+    def _refresh_compression_preview_feedback_style(self) -> None:
+        self.compress_preview_feedback.style().unpolish(self.compress_preview_feedback)
+        self.compress_preview_feedback.style().polish(self.compress_preview_feedback)
+
+    def selected_operation(self) -> str:
+        if self.current_mode is WorkspaceMode.LAYOUT:
+            return "nup" if self.layout_nup_radio.isChecked() else "resize"
+        if self.current_mode is WorkspaceMode.CONVERT:
+            if self.convert_images_pdf_radio.isChecked():
+                return "images_to_pdf"
+            if self.convert_extract_radio.isChecked():
+                return "extract_images"
+            return "pdf_to_images"
+        if self.current_mode is WorkspaceMode.PROTECT:
+            if self.protect_permissions_radio.isChecked():
+                return "permissions"
+            if self.protect_remove_radio.isChecked():
+                return "remove_password"
+            return "password"
+        if self.current_mode is WorkspaceMode.SIGN:
+            if self.sign_digital_radio.isChecked():
+                return "digital"
+            if self.sign_date_radio.isChecked():
+                return "date"
+            return "visual"
+        if self.current_mode is WorkspaceMode.COMPRESS:
+            if self.compress_light_radio.isChecked():
+                return "light"
+            if self.compress_max_radio.isChecked():
+                return "maximum"
+            if self.compress_advanced_radio.isChecked():
+                return "advanced"
+            return "balanced"
+        return self.current_mode.value
+
+    def operation_options(self) -> dict[str, object]:
+        """Return a UI-independent snapshot of the active tool settings."""
+        action = self.selected_operation()
+        if self.current_mode is WorkspaceMode.LAYOUT:
+            return {
+                "action": action,
+                "page_size": tuple(
+                    self.layout_sheet_size.currentData()
+                    if action == "nup"
+                    else self.layout_page_size.currentData()
+                ),
+                "fit_mode": self.layout_fit_mode.currentData(),
+                "pages_per_sheet": int(self.layout_nup_count.currentData()),
+                "margin_mm": self.layout_margin.value(),
+            }
+        if self.current_mode is WorkspaceMode.CONVERT:
+            return {
+                "action": action,
+                "format": (
+                    self.convert_extract_format.currentData()
+                    if action == "extract_images"
+                    else self.convert_image_format.currentData()
+                ),
+                "dpi": (
+                    self.convert_images_dpi.value()
+                    if action == "images_to_pdf"
+                    else self.convert_dpi.value()
+                ),
+                "quality": (
+                    self.convert_images_quality.value()
+                    if action == "images_to_pdf"
+                    else self.convert_quality.value()
+                ),
+                "image_paths": tuple(self._conversion_image_paths),
+            }
+        if self.current_mode is WorkspaceMode.PROTECT:
+            return {
+                "action": action,
+                "user_password": self.protect_user_password.text(),
+                "confirm_password": self.protect_confirm_password.text(),
+                "owner_password": self.protect_owner_password.text(),
+                "confirm_owner_password": self.protect_confirm_owner_password.text(),
+                "current_password": self.protect_remove_password.text(),
+                "allow_print": self.protect_allow_print.isChecked(),
+                "allow_copy": self.protect_allow_copy.isChecked(),
+                "allow_modify": self.protect_allow_modify.isChecked(),
+                "protected_path": self._protected_pdf_path,
+            }
+        if self.current_mode is WorkspaceMode.SIGN:
+            return {
+                "action": action,
+                "image_path": self._signature_image_path,
+                "certificate_path": self._certificate_path,
+                "certificate_password": self.sign_certificate_password.text(),
+                "position": (
+                    self.sign_date_position.currentData()
+                    if action == "date"
+                    else self.sign_position.currentData()
+                ),
+                "include_time": self.sign_date_include_time.isChecked(),
+            }
+        if self.current_mode is WorkspaceMode.COMPRESS:
+            return {
+                "action": action,
+                "profile": "balanced" if action == "advanced" else action,
+                "dpi": (
+                    self.compress_dpi.value()
+                    if action == "advanced" and self.compress_use_dpi.isChecked()
+                    else None
+                ),
+                "target_bytes": (
+                    int(self.compress_target_size.value() * 1_000_000)
+                    if action == "advanced" and self.compress_use_target.isChecked()
+                    else None
+                ),
+                "allow_aggressive": self.compress_allow_raster.isChecked(),
+            }
+        return {"action": action}
+
+    def set_conversion_images(self, paths: Sequence[str]) -> None:
+        self._conversion_image_paths = list(paths)
+        count = len(self._conversion_image_paths)
+        self.convert_images_label.setText(
+            self.t("no_images_selected")
+            if not count
+            else self.t(
+                "images_ready",
+                count=count,
+                names=", ".join(
+                    path.rsplit("/", 1)[-1] for path in self._conversion_image_paths[:3]
+                ),
+            )
+        )
+        self._update_operation_controls()
+
+    def set_signature_image(self, path: str) -> None:
+        self._signature_image_path = path
+        self.sign_image_label.setText(
+            path.rsplit("/", 1)[-1] if path else self.t("no_signature_selected")
+        )
+        self._update_operation_controls()
+
+    def set_certificate_file(self, path: str) -> None:
+        self._certificate_path = path
+        self.sign_certificate_label.setText(
+            path.rsplit("/", 1)[-1] if path else self.t("no_certificate_selected")
+        )
+        self._update_operation_controls()
+
+    def set_protected_pdf(self, path: str) -> None:
+        self._protected_pdf_path = path
+        self.protect_file_label.setText(
+            path.rsplit("/", 1)[-1] if path else self.t("use_active_document")
+        )
+        self._update_operation_controls()
 
     def _create_planned_options(self, spec: ModeSpec) -> QWidget:
         page = QWidget()
@@ -1631,6 +2597,7 @@ class WorkspacePage(QWidget):
         if not MODE_SPECS[mode].is_selectable:
             return
         self.set_mode(mode)
+        self.show_workspace()
         self.mode_requested.emit(mode.value)
 
     def t(self, key: str, **values: object) -> str:
@@ -1746,22 +2713,187 @@ class WorkspacePage(QWidget):
             if label is not None:
                 label.setText(self.t(key))
 
+        advanced_cards = (
+            (
+                self.layout_resize_card,
+                self.layout_resize_radio,
+                "layout_resize_action",
+                "layout_resize_description",
+            ),
+            (
+                self.layout_nup_card,
+                self.layout_nup_radio,
+                "layout_nup_action",
+                "layout_nup_description",
+            ),
+            (
+                self.convert_pdf_card,
+                self.convert_pdf_images_radio,
+                "pdf_to_images",
+                "pdf_to_images_description",
+            ),
+            (
+                self.convert_images_card,
+                self.convert_images_pdf_radio,
+                "images_to_pdf",
+                "images_to_pdf_description",
+            ),
+            (
+                self.convert_extract_card,
+                self.convert_extract_radio,
+                "extract_images",
+                "extract_images_description",
+            ),
+            (
+                self.protect_password_card,
+                self.protect_password_radio,
+                "open_password_action",
+                "open_password_description",
+            ),
+            (
+                self.protect_permissions_card,
+                self.protect_permissions_radio,
+                "permissions_action",
+                "permissions_description",
+            ),
+            (
+                self.protect_remove_card,
+                self.protect_remove_radio,
+                "remove_password_action",
+                "remove_password_description",
+            ),
+            (
+                self.sign_visual_card,
+                self.sign_visual_radio,
+                "visual_signature",
+                "visual_signature_description",
+            ),
+            (
+                self.sign_digital_card,
+                self.sign_digital_radio,
+                "digital_signature",
+                "digital_signature_description",
+            ),
+            (
+                self.sign_date_card,
+                self.sign_date_radio,
+                "add_date",
+                "add_date_description",
+            ),
+        )
+        for card, radio, title_key, description_key in advanced_cards:
+            radio.setText(self.t(title_key))
+            description_label = card.findChild(QLabel, "splitStrategyDescription")
+            if description_label is not None:
+                description_label.setText(self.t(description_key))
+
+        self.layout_target_format_label.setText(self.t("target_format"))
+        self.layout_placement_label.setText(self.t("placement"))
+        self.layout_fit_mode.setItemText(0, self.t("fit"))
+        self.layout_fit_mode.setItemText(1, self.t("fit_without_upscale"))
+        self.layout_nup_count_label.setText(self.t("pages_per_sheet"))
+        self.layout_margin_label.setText(self.t("margin_mm"))
+        self.layout_sheet_label.setText(self.t("sheet"))
+        self.layout_export_hint.setText(self.t("layout_export_hint"))
+
+        self.convert_summary_label.setText(self.t("convert_choose_type"))
+        self.convert_format_label.setText(self.t("image_format"))
+        self.convert_dpi_label.setText(self.t("resolution_dpi"))
+        self.convert_quality_label.setText(self.t("jpeg_quality"))
+        self.convert_images_dpi_label.setText(self.t("resolution_dpi"))
+        self.convert_images_quality_label.setText(self.t("jpeg_quality"))
+        self.convert_choose_images_button.setText(f"＋  {self.t('choose_images')}")
+        if not self._conversion_image_paths:
+            self.convert_images_label.setText(self.t("no_images_selected"))
+        self.convert_extract_output_label.setText(self.t("output"))
+        self.convert_extract_format.setItemText(0, self.t("original_format_if_possible"))
+
+        self.protect_summary_label.setText(self.t("protect_memory_notice"))
+        self.protect_user_password.setPlaceholderText(self.t("password"))
+        self.protect_confirm_password.setPlaceholderText(self.t("confirm_password"))
+        self.protect_owner_password.setPlaceholderText(self.t("owner_password"))
+        self.protect_confirm_owner_password.setPlaceholderText(self.t("confirm_owner_password"))
+        self.protect_remove_password.setPlaceholderText(self.t("current_password"))
+        self.protect_allow_print.setText(self.t("allow_print"))
+        self.protect_allow_copy.setText(self.t("allow_copy"))
+        self.protect_allow_modify.setText(self.t("allow_modify"))
+        self.protect_choose_file_button.setText(self.t("choose_protected_pdf"))
+        if not self._protected_pdf_path:
+            self.protect_file_label.setText(self.t("use_active_document"))
+        self.protect_warning.setText(self.t("permissions_advisory"))
+
+        self.sign_summary_label.setText(self.t("signature_kind_notice"))
+        self.sign_choose_image_button.setText(self.t("choose_signature"))
+        if not self._signature_image_path:
+            self.sign_image_label.setText(self.t("no_signature_selected"))
+        self.sign_choose_certificate_button.setText(self.t("choose_certificate"))
+        if not self._certificate_path:
+            self.sign_certificate_label.setText(self.t("no_certificate_selected"))
+        self.sign_certificate_password.setPlaceholderText(self.t("certificate_password"))
+        for combo in (self.sign_position, self.sign_date_position):
+            for index in range(combo.count()):
+                combo.setItemText(index, self.t(str(combo.itemData(index))))
+        self.sign_date_include_time.setText(self.t("include_time"))
+
+        self.compress_summary_label.setText(self.t("compress_choose_profile"))
+        compression_cards = (
+            (
+                self.compress_light_radio,
+                "compression_light",
+                "compression_light_description",
+            ),
+            (
+                self.compress_balanced_radio,
+                "compression_balanced",
+                "compression_balanced_description",
+            ),
+            (
+                self.compress_max_radio,
+                "compression_maximum",
+                "compression_maximum_description",
+            ),
+            (
+                self.compress_advanced_radio,
+                "compression_advanced",
+                "compression_advanced_description",
+            ),
+        )
+        for (card, _radio), (radio, title_key, description_key) in zip(
+            self.compress_cards,
+            compression_cards,
+            strict=True,
+        ):
+            radio.setText(self.t(title_key))
+            description_label = card.findChild(QLabel, "splitStrategyDescription")
+            if description_label is not None:
+                description_label.setText(self.t(description_key))
+        self.compress_use_dpi.setText(self.t("compression_use_dpi"))
+        self.compress_use_target.setText(self.t("compression_use_target"))
+        self.compress_target_size.setSuffix(self.t("megabyte_suffix"))
+        self.compress_allow_raster.setText(self.t("allow_aggressive_compression"))
+        self.compress_raster_warning.setText(self.t("compression_raster_option_warning"))
+        self.compress_result_hint.setText(self.t("target_size_notice"))
+        self.compress_preview_cancel_button.setText(self.t("cancel"))
+        self.operation_cancel_button.setText(self.t("cancel"))
+        self._update_compression_estimate()
+
         for mode, spec in MODE_SPECS.items():
             mode_label = self.t(f"mode_{mode.value}_label")
-            description = self.t(f"mode_{mode.value}_home_description")
+            mode_description = self.t(f"mode_{mode.value}_home_description")
             action = self.mode_actions[mode]
             button = self.mode_buttons[mode]
             action.setText(mode_label)
             button.setText(mode_label)
             tooltip = (
-                description
+                mode_description
                 if spec.is_selectable
-                else self.t("coming_soon_tooltip", description=description)
+                else self.t("coming_soon_tooltip", description=mode_description)
             )
             action.setToolTip(tooltip)
             button.setToolTip(tooltip)
             button.setAccessibleName(self.t("tool_accessible", tool=mode_label))
 
+        self._update_operation_controls()
         self.set_mode(self.current_mode)
         self._update_split_controls()
         self._update_change_legend()
@@ -1798,7 +2930,21 @@ class WorkspacePage(QWidget):
         return self._home_active
 
     def show_home(self) -> None:
+        self._compression_preview_timer.stop()
+        self.compression_preview_cancel_requested.emit()
         self._home_active = True
+        self._conversion_image_paths.clear()
+        self._signature_image_path = ""
+        self._certificate_path = ""
+        self._protected_pdf_path = ""
+        self._compression_sources = frozenset()
+        self._compression_source_bytes = 0
+        if hasattr(self, "convert_images_label"):
+            self.convert_images_label.setText(self.t("no_images_selected"))
+            self.sign_image_label.setText(self.t("no_signature_selected"))
+            self.sign_certificate_label.setText(self.t("no_certificate_selected"))
+            self.protect_file_label.setText(self.t("use_active_document"))
+            self.clear_sensitive_fields()
         self.content_stack.setCurrentWidget(self.home_view)
         self.statusbar.show()
         self.zoom_controls.hide()
@@ -1813,6 +2959,23 @@ class WorkspacePage(QWidget):
         self._thumbnail_tasks.clear()
         self._items_by_thumbnail.clear()
         self._thumbnail_cache.clear()
+        self._update_compression_estimate()
+
+    def clear_sensitive_fields(self) -> None:
+        """Discard passwords and passphrases after a workflow or workspace reset."""
+        for field_name in (
+            "protect_user_password",
+            "protect_confirm_password",
+            "protect_owner_password",
+            "protect_confirm_owner_password",
+            "protect_remove_password",
+            "sign_certificate_password",
+        ):
+            field = getattr(self, field_name, None)
+            if isinstance(field, QLineEdit):
+                field.clear()
+        if hasattr(self, "protect_password_controls"):
+            self._update_operation_controls()
 
     def show_workspace(self) -> None:
         self._home_active = False
@@ -1823,6 +2986,8 @@ class WorkspacePage(QWidget):
         self.home_button.style().unpolish(self.home_button)
         self.home_button.style().polish(self.home_button)
         self._update_export_state()
+        if self.current_mode is WorkspaceMode.COMPRESS:
+            self._schedule_compression_preview()
 
     def set_mode(self, mode: WorkspaceMode | str) -> None:
         selected = coerce_mode(mode)
@@ -1877,6 +3042,11 @@ class WorkspacePage(QWidget):
                     title=self.t(f"mode_{selected.value}_home_title"),
                 )
             )
+        if selected is WorkspaceMode.COMPRESS:
+            self._schedule_compression_preview()
+        else:
+            self._compression_preview_timer.stop()
+            self.compression_preview_cancel_requested.emit()
 
     def set_theme(self, theme: Theme) -> None:
         self._theme = theme
@@ -1898,6 +3068,51 @@ class WorkspacePage(QWidget):
         )
         if self.current_mode is WorkspaceMode.SPLIT:
             can_export = can_export and self._split_plan_valid
+        elif self.current_mode is WorkspaceMode.CONVERT:
+            action = self.selected_operation()
+            can_export = (
+                bool(self._conversion_image_paths)
+                if action == "images_to_pdf"
+                else bool(self._active_page_count)
+            ) and not self._home_active
+        elif self.current_mode is WorkspaceMode.PROTECT:
+            action = self.selected_operation()
+            if action == "password":
+                password = self.protect_user_password.text()
+                can_export = (
+                    bool(self._active_page_count)
+                    and bool(password)
+                    and password == self.protect_confirm_password.text()
+                )
+            elif action == "permissions":
+                owner_password = self.protect_owner_password.text()
+                can_export = (
+                    bool(self._active_page_count)
+                    and bool(owner_password)
+                    and owner_password == self.protect_confirm_owner_password.text()
+                )
+            else:
+                can_export = bool(self.protect_remove_password.text()) and bool(
+                    self._protected_pdf_path or self._active_page_count
+                )
+            can_export = can_export and not self._home_active
+        elif self.current_mode is WorkspaceMode.SIGN:
+            action = self.selected_operation()
+            can_export = bool(self._active_page_count) and (
+                action == "date"
+                or (action == "visual" and bool(self._signature_image_path))
+                or (action == "digital" and bool(self._certificate_path))
+            )
+            can_export = can_export and not self._home_active
+        elif self.current_mode is WorkspaceMode.COMPRESS:
+            advanced_valid = (
+                self.compress_use_dpi.isChecked() or self.compress_use_target.isChecked()
+            )
+            can_export = (
+                bool(self._active_page_count)
+                and (self.selected_operation() != "advanced" or advanced_valid)
+                and not self._home_active
+            )
         self.export_button.setEnabled(can_export)
         self.primary_action_changed.emit()
 
@@ -1948,6 +3163,42 @@ class WorkspacePage(QWidget):
                 else self.t("mode_split_label")
             )
             tooltip = self.t("split_export_tooltip")
+        elif self.current_mode is WorkspaceMode.LAYOUT:
+            text = (
+                self.t("layout_create_sheets")
+                if self.selected_operation() == "nup"
+                else self.t("layout_adapt_export")
+            )
+            tooltip = self.t("layout_export_tooltip")
+        elif self.current_mode is WorkspaceMode.CONVERT:
+            action = self.selected_operation()
+            text = {
+                "pdf_to_images": self.t("convert_to_images"),
+                "images_to_pdf": self.t("create_pdf"),
+                "extract_images": self.t("extract_images"),
+            }[action]
+            tooltip = self.t("conversion_export_tooltip")
+        elif self.current_mode is WorkspaceMode.PROTECT:
+            text = {
+                "password": self.t("protect_and_export"),
+                "permissions": self.t("apply_permissions"),
+                "remove_password": self.t("create_unlocked_copy"),
+            }[self.selected_operation()]
+            tooltip = self.t("choose_pdf_destination")
+        elif self.current_mode is WorkspaceMode.SIGN:
+            text = {
+                "visual": self.t("add_signature"),
+                "digital": self.t("sign_digitally"),
+                "date": self.t("add_date"),
+            }[self.selected_operation()]
+            tooltip = self.t("sign_export_tooltip")
+        elif self.current_mode is WorkspaceMode.COMPRESS:
+            text = (
+                self.t("target_size_button", size=f"{self.compress_target_size.value():.1f}")
+                if self.selected_operation() == "advanced" and self.compress_use_target.isChecked()
+                else self.t("compress_and_export")
+            )
+            tooltip = self.t("compress_export_tooltip")
         else:
             text = self.t("export")
             tooltip = self.t("export_tooltip")
@@ -1978,6 +3229,27 @@ class WorkspacePage(QWidget):
         self.status = QLabel(self._base_status)
         self.status.setObjectName("muted")
         layout.addWidget(self.status)
+        self.operation_progress_widget = QWidget()
+        operation_layout = QHBoxLayout(self.operation_progress_widget)
+        operation_layout.setContentsMargins(8, 0, 8, 0)
+        operation_layout.setSpacing(7)
+        self.operation_progress_label = QLabel()
+        self.operation_progress_label.setObjectName("organizeActionStatus")
+        operation_layout.addWidget(self.operation_progress_label)
+        self.operation_progress = QProgressBar()
+        self.operation_progress.setObjectName("operationProgress")
+        self.operation_progress.setRange(0, 100)
+        self.operation_progress.setValue(0)
+        self.operation_progress.setFixedWidth(190)
+        operation_layout.addWidget(self.operation_progress)
+        self.operation_cancel_button = self._button(
+            "Annuler",
+            self.operation_cancel_requested.emit,
+            "secondaryButton",
+        )
+        operation_layout.addWidget(self.operation_cancel_button)
+        self.operation_progress_widget.hide()
+        layout.addWidget(self.operation_progress_widget)
         layout.addStretch()
         self.zoom_controls = QWidget()
         self.zoom_controls.setObjectName("zoomControls")
@@ -2407,6 +3679,30 @@ class WorkspacePage(QWidget):
         self.undo_button.setEnabled(can_undo)
         self.redo_button.setEnabled(can_redo)
 
+    def set_operation_busy(self, busy: bool) -> None:
+        """Disable editing while keeping the status-bar cancel action usable."""
+        self.topbar.setEnabled(not busy)
+        self.content_stack.setEnabled(not busy)
+        if not busy:
+            self.operation_progress_widget.hide()
+
+    def set_operation_progress(
+        self,
+        percent: int,
+        text: str,
+        *,
+        cancellable: bool = True,
+    ) -> None:
+        self.operation_progress_label.setText(text)
+        self.operation_progress.setValue(max(0, min(100, percent)))
+        self.operation_cancel_button.setVisible(cancellable)
+        self.operation_cancel_button.setEnabled(cancellable)
+        self.operation_progress_widget.show()
+
+    def set_operation_cancelling(self) -> None:
+        self.operation_progress_label.setText(self.t("operation_cancelling"))
+        self.operation_cancel_button.setEnabled(False)
+
     def show_message(self, message: str, error: bool = False) -> None:
         self._message_token += 1
         token = self._message_token
@@ -2435,6 +3731,8 @@ class WorkspacePage(QWidget):
 
     def shutdown(self) -> None:
         """Stop preview jobs before Qt destroys their signal receivers."""
+        self._compression_preview_timer.stop()
+        self.compression_preview_cancel_requested.emit()
         for task in self._thumbnail_tasks.values():
             task.cancel()
         self._thread_pool.clear()
@@ -2618,6 +3916,21 @@ class WorkspacePage(QWidget):
         )
         self.close_all_documents_button.setEnabled(bool(project.documents or project.pages))
         self._document_count = len(project.documents)
+        compression_sources = frozenset(
+            str(document.path) for document in project.documents.values()
+        )
+        source_bytes = sum(
+            document.path.stat().st_size
+            for document in project.documents.values()
+            if document.path.is_file()
+        )
+        self._compression_source_bytes = source_bytes
+        if compression_sources != self._compression_sources:
+            self._compression_sources = compression_sources
+            if source_bytes:
+                source_mb = source_bytes / 1_000_000
+                self.compress_target_size.setValue(max(0.1, source_mb * 0.6))
+        self._update_compression_estimate()
         self._items_by_thumbnail.clear()
         self.pages.clear()
         moved_count = 0

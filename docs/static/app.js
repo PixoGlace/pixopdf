@@ -637,7 +637,20 @@
     }
   }
 
-  function scoreAsset(asset, platform) {
+  function architectureMatches(name, architecture) {
+    if (!architecture) {
+      return true;
+    }
+    const patterns = {
+      arm64: /(?:arm64|aarch64)/i,
+      aarch64: /(?:arm64|aarch64)/i,
+      x86_64: /(?:x86_64|x64|amd64)/i,
+      amd64: /(?:x86_64|x64|amd64)/i,
+    };
+    return patterns[architecture]?.test(name) ?? true;
+  }
+
+  function scoreAsset(asset, platform, kind = "native", architecture = "") {
     const matcher = PLATFORM_MATCHERS[platform];
     if (!matcher || typeof asset?.name !== "string") {
       return Number.NEGATIVE_INFINITY;
@@ -668,6 +681,15 @@
     if (!platformMatches && !hasNativeExtension) {
       return Number.NEGATIVE_INFINITY;
     }
+    if (kind === "native" && !hasNativeExtension) {
+      return Number.NEGATIVE_INFINITY;
+    }
+    if (kind === "portable" && !hasArchiveExtension) {
+      return Number.NEGATIVE_INFINITY;
+    }
+    if (!architectureMatches(name, architecture)) {
+      return Number.NEGATIVE_INFINITY;
+    }
 
     let score = platformMatches * 20;
     if (hasNativeExtension) {
@@ -678,12 +700,21 @@
     if (/universal|x86_64|amd64|arm64|aarch64/i.test(name)) {
       score += 1;
     }
+    if (kind === "portable" && /portable/i.test(name)) {
+      score += 8;
+    }
+    if (kind === "native" && /setup|installer/i.test(name)) {
+      score += 8;
+    }
     return score;
   }
 
-  function assetForPlatform(assets, platform) {
+  function assetForPlatform(assets, platform, kind = "native", architecture = "") {
     return assets
-      .map((asset) => ({ asset, score: scoreAsset(asset, platform) }))
+      .map((asset) => ({
+        asset,
+        score: scoreAsset(asset, platform, kind, architecture),
+      }))
       .filter(({ score }) => Number.isFinite(score))
       .sort((left, right) => right.score - left.score)[0]?.asset;
   }
@@ -834,9 +865,14 @@
     releaseElements("[data-download-platform]").forEach((element) => {
       const requested = element.dataset.downloadPlatform;
       const platform = requested === "auto" ? detectedPlatform() : requested;
-      const asset = platform ? assetForPlatform(assets, platform) : null;
+      const kind = element.dataset.downloadKind || "native";
+      const architecture = element.dataset.downloadArch || "";
+      const asset = platform
+        ? assetForPlatform(assets, platform, kind, architecture)
+        : null;
 
       element.dataset.resolvedPlatform = platform || "unknown";
+      element.dataset.resolvedKind = kind;
       element.removeAttribute("aria-busy");
 
       if (asset) {

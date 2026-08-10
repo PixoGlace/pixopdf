@@ -16,7 +16,7 @@ from pixopdf.services.update_service import UpdateResult, UpdateStatus
 from pixopdf.ui import main_window as main_window_module
 from pixopdf.ui.main_window import MainWindow
 from pixopdf.ui.themes.theme_manager import Theme
-from pixopdf.ui.tool_modes import MODE_SPECS, ModeStatus, WorkspaceMode
+from pixopdf.ui.tool_modes import MODE_SPECS, WorkspaceMode
 
 
 class EmptyBackend(PdfBackend):
@@ -222,25 +222,21 @@ def test_menu_uses_platform_native_conventions(
         _close_clean(window, qapp)
 
 
-def test_future_tool_modes_stay_visible_but_disabled(
+def test_all_tool_modes_are_visible_and_enabled(
     tmp_path: Path,
     qapp: QApplication,
 ) -> None:
     window = _window(tmp_path)
     try:
-        for mode, spec in MODE_SPECS.items():
+        for mode, _spec in MODE_SPECS.items():
             action = window.tool_mode_actions[mode]
             assert action.isVisible()
             assert bool(action.text())
-            if spec.status is ModeStatus.COMING_SOON:
-                assert not action.isEnabled()
-                assert not action.isChecked()
-            else:
-                assert action.isEnabled()
+            assert action.isEnabled()
 
-        before = window.active_mode
         window.tool_mode_actions[WorkspaceMode.CONVERT].trigger()
-        assert window.active_mode is before
+        assert window.active_mode is WorkspaceMode.CONVERT
+        assert not window.workspace.is_home
     finally:
         _close_clean(window, qapp)
 

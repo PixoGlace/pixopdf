@@ -9,6 +9,10 @@ app_name = str(metadata["APP_NAME"])
 app_version = str(metadata["VERSION"])
 
 datas, binaries, hiddenimports = collect_all("pypdfium2")
+signature_datas, signature_binaries, signature_hiddenimports = collect_all("pyhanko")
+datas.extend(signature_datas)
+binaries.extend(signature_binaries)
+hiddenimports.extend(signature_hiddenimports)
 datas.append((str(Path("LICENSE")), "."))
 asset_root = Path("assets")
 runtime_extensions = {".json", ".md", ".png", ".svg"}
@@ -48,6 +52,7 @@ if sys.platform == "darwin":
     app = BUNDLE(  # noqa: F821
         collected,
         name=f"{app_name}.app",
+        icon="assets/PixoPDF.icns",
         bundle_identifier="com.pixoglace.pixopdf",
         info_plist={
             "CFBundleName": app_name,
@@ -56,6 +61,22 @@ if sys.platform == "darwin":
             "CFBundleVersion": app_version,
             "NSHighResolutionCapable": True,
         },
+    )
+elif sys.platform == "win32":
+    exe = EXE(  # noqa: F821
+        pyz,
+        a.scripts,
+        [],
+        exclude_binaries=True,
+        name=app_name,
+        console=False,
+        icon="assets/PixoPDF.ico",
+    )
+    collected = COLLECT(  # noqa: F821
+        exe,
+        a.binaries,
+        a.datas,
+        name=app_name,
     )
 else:
     exe = EXE(  # noqa: F821
@@ -66,4 +87,5 @@ else:
         [],
         name=app_name,
         console=False,
+        icon="assets/PixoPDF.png",
     )
